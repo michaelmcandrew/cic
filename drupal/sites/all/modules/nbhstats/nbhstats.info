@@ -1,0 +1,6 @@
+name = CiviCRM UK neighbourhood statistics
+description = Creates link to http://neighbourhood.statistics.gov.uk for each address in CiviCRM with a postcode.
+core = 6.x
+version = 1.beta
+dependencies[] = civicrm
+package = CiviCRM

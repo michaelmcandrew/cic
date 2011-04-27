@@ -1,0 +1,69 @@
+<?php
+//Would be nice to implement this as a CiviCRM menu item in future
+function nbhstats_menu() {
+	
+	$items['civicrm/nbhstats/batch'] = array(
+	    'title' => 'Batch update Neighbourhood Statistics',
+	    'page callback' => 'nbhstats_batch',
+	    'access arguments'   => array('administer CiviCRM'),
+	    'type' => MENU_CALLBACK
+	);
+    return $items;
+}
+
+function nbhstats_civicrm_post( $op, $objectName, $objectId, &$objectRef ) {
+	if(
+		($op!='create' && $op!='edit') ||
+		($objectName!='Individual' && $objectName!='Organization' && $objectName!='Household')
+	){
+		return;
+	}
+	
+	//Get postcode from saved contact.
+	require_once('api/v2/Contact.php');
+	require_once('api/v2/Location.php');
+	$params = array(
+		'contact_id' => $objectId
+	);
+	$locations = civicrm_location_get($params);
+	foreach($locations as $location){
+		if(is_array($location['address'])){
+			nbhstats_create_nbhstats_link($location['address']);			
+		}
+	};
+		
+}
+
+function nbhstats_verify_postcode($postcode) {
+	//TODO: nice (REGEXP or API) based verifcation
+	
+	return TRUE;
+}
+
+function nbhstats_create_nbhstats_link($address) {
+	if(strlen($address['postal_code']) == 0 && nbhstats_verify_postcode($address['postal_code'])){
+		$link='';
+	} else {
+		$link="<a href=\"http://neighbourhood.statistics.gov.uk/dissemination/NeighbourhoodSummary.do?width=0&i=0&profileSearchText={$address['postal_code']}\" target=\"_blank\">Neighbourhood stats</a>";
+	}
+	$address['postal_code']=urlencode($address['postal_code']);
+
+	$params[1] = array( $address['id'], 'Integer');
+	$params[2] = array( $link, 'String');
+		
+	CRM_Core_DAO::executeQuery("REPLACE INTO civicrm_value_neighbourhood_stats SET entity_id=%1, link=%2", $params);
+}
+
+function nbhstats_batch(){
+	civicrm_initialize( true );
+	
+	$result=CRM_Core_DAO::executeQuery("SELECT id, postal_code FROM civicrm_address WHERE postal_code != '' AND postal_code IS NOT NULL ");
+	while($address=$result->fetch()){
+		nbhstats_create_nbhstats_link(array('id'=>$result->id, 'postal_code'=>$result->postal_code));
+		$count++;
+	}
+	return "Batch update complete: {$count} addresses have been updated with links to Neighbourhood Statistics";
+}
+
+
+

@@ -1,0 +1,10 @@
+; $Id: noreqnewpass.info,v 1.1.2.1.2.1.2.1 2008/05/27 20:05:56 pedrofaria Exp $
+name = No Request New Pass
+description = "Disable link to request a new password"
+core = 6.x
+; Information added by drupal.org packaging script on 2008-10-14
+version = "6.x-2.0"
+core = "6.x"
+project = "noreqnewpass"
+datestamp = "1223991319"
+

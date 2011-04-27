@@ -1,0 +1,16 @@
+INSTALLATION
+============
+
+1) Download this module from https://github.com/michaelmcandrew/nbhstats and install as a normal Drupal module.
+
+2) Enable the module.
+
+3) Import the custom data by calling the following URL:
+
+http://your_root_url/sites/all/modules/civicrm/bin/migrate/import.php?name=yourusername&pass=yourpassword&key=yourkey&file=pathtoCustomGroupData.xml
+
+By default 'pathtoCustomGroupData.xml' will be
+
+/path_to_drupal_root/sites/all/modules/nbhstats/CustomGroupData.xml
+
+4) (optional) run the batch process to update all postcodes.  The batch process requires you to be logged in with administer CiviCRM permissions.  Point your browser to http://yourdomain.org/civicrm/nbhstats/batch

@@ -1,0 +1,12 @@
+; $Id: jstimer.info,v 1.1 2010/05/04 17:23:06 jvandervort Exp $
+name = "Javascript timer api"
+description = "Provides a timer api and several timer widgets for dynamic html thingys."
+package = "Javascript timer"
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-07-01
+version = "6.x-1.2"
+core = "6.x"
+project = "jstimer"
+datestamp = "1278013808"
+

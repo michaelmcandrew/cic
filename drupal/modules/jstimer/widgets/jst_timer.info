@@ -1,0 +1,13 @@
+; $Id: jst_timer.info,v 1.1 2010/05/04 17:23:06 jvandervort Exp $
+name = Widget: timer
+description = Embeddable countdown and countup timers.
+dependencies[] = jstimer
+package = "Javascript timer"
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-07-01
+version = "6.x-1.2"
+core = "6.x"
+project = "jstimer"
+datestamp = "1278013808"
+

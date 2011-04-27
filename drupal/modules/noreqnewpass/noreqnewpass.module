@@ -1,0 +1,86 @@
+<?php
+// $Id: noreqnewpass.module,v 1.1.2.1.2.5.2.2 2008/10/14 13:23:57 pedrofaria Exp $
+
+/**
+ * Implementation of hook_menu().
+ */
+function noreqnewpass_menu () {
+  $items = array();
+  
+  $items['admin/settings/noreqnewpass'] = array(
+    'title' => t('No Request New Password'),
+    'description' => t('Manage password preferences'),
+    'access arguments' => array('administer noreqnewpass'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('noreqnewpass_admin_form'), 
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function noreqnewpass_menu_alter(&$callback) {
+  if (variable_get('noreqnewpass_disabled', true)) {    
+    $callback['user/password'] = array('access arguments' => array(FALSE));
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function noreqnewpass_perm() {
+  return array('administer noreqnewpass', 'can change your own password');
+}
+
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function noreqnewpass_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'user_login_block' && variable_get('noreqnewpass_disabled', true)) {
+    $items = array();
+    if (variable_get('user_register', 1)) {
+      $items[] = l(t('Create new account'), 'user/register', array('title' => t('Create a new user account.')));
+    }
+  
+    $form['links'] = array('#value' => theme('item_list', $items));
+  }
+  
+  if (($form_id == 'user_login_block' || $form_id == 'user_login') && variable_get('noreqnewpass_disabled', true)) {
+    $key = array_search('user_login_final_validate', $form['#validate']);
+    $form['#validate'][2] = 'noreqnewpass_user_login_final_validate';
+  }
+  
+  // Remove pass field from user edit form if he cant change
+  if ($form_id == 'user_profile_form' && !user_access("can change your own password")) {
+    unset($form['account']['pass']);
+  }
+}
+
+/**
+ * FAPI definitions for administration form
+ * 
+ * @return 
+ */
+function noreqnewpass_admin_form() {
+  $form = array();
+  
+  $form['noreqnewpass_disabled'] = array(
+    '#title' => t('Disable Request new password link'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('noreqnewpass_disabled', true),
+    '#description' => t('If checked, Request new password link will be disabled.')
+  );
+  
+  return system_settings_form($form);
+}
+
+function noreqnewpass_user_login_final_validate($form_id, &$form_states) {
+  global $user;
+  if (!$user->uid) {
+    form_set_error('name', t('Sorry, unrecognized username or password.'));
+    watchdog('user', t('Login attempt failed for %user.', array('%user' => $form_values['name'])));
+  }
+}

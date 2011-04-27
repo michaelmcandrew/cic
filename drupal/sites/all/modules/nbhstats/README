@@ -1,0 +1,5 @@
+Creates a link to http://neighbourhood.statistics.gov.uk for each address in CiviCRM with a postcode.
+
+Links are updated each time a contact is created or updated.  This module also includes a batch process (http://yourdomain.org/civicrm/nbhstats/batch) to update all addresses after installation.
+
+See INSTALLATION.txt for installation instructions.
