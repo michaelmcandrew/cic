@@ -1,0 +1,6 @@
+name = CIC Church directory
+description = Provides pages for the searchable directory of churches.
+core = 6.x
+version = 1.beta
+dependencies[] = civicrm
+package = CiviCRM

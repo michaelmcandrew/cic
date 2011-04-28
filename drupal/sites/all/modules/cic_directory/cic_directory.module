@@ -1,0 +1,136 @@
+<?php
+
+function cic_directory_menu() {
+	$items['directory/view'] = array(
+		'page callback' => 'cic_directory_view',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK
+	);
+	return $items;
+}
+
+function cic_directory_theme() {
+	return array(
+		'cic_directory_church' => array(
+			'arguments' => array('church' => NULL,'address_block' => NULL, 'about' => NULL, 'links' => NULL, 'docs' => NULL),
+			'template' => 'cic-directory-church',
+	)
+  );
+}
+
+
+
+function cic_directory_view($contact_id) {
+	
+	//init CiviCRM
+	civicrm_initialize(TRUE);
+	
+	//ACL check whether this Church is allowed to be viewed
+	
+	// Build Breadcrumbs
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	$breadcrumb[] = l('Directory', 'Directory');
+
+	// Set Breadcrumbs
+	drupal_set_breadcrumb($breadcrumb);
+	drupal_add_css(drupal_get_path('module', 'cic_directory') . '/cic-directory.css');	
+	//get the contact
+	require_once('api/v2/Contact.php');
+	$params = array(
+		'contact_id' => $contact_id,
+	);
+	$contact_result = civicrm_contact_get($params);
+	
+	//basic church info
+	$church = $contact_result[$contact_id];
+
+
+	$params = array(
+		'contact_id' => $contact_id,
+		'return.custom_1' => 1,
+		'return.custom_2' => 1,
+		'return.custom_3' => 1,
+		'return.custom_4' => 1,
+		'return.custom_5' => 1,
+		'return.custom_6' => 1,
+		'return.custom_7' => 1,
+		'return.custom_8' => 1,
+		'return.custom_9' => 1,
+		'return.custom_10' => 1,
+		'return.custom_11' => 1				
+	);
+
+	$contact_result = civicrm_contact_get($params);
+	
+	//basic church info
+	$church_custom_data = $contact_result[$contact_id];
+	
+	//set page title
+	drupal_set_title($church['display_name']);
+	
+	
+	
+	//contact
+	require_once 'CRM/Utils/Address.php';
+	$address_block=nl2br(CRM_Utils_Address::format($church));
+	$params=array( 1 => array( $contact_id, 'Integer'));
+	$website_result = CRM_Core_DAO::executeQuery("SELECT url FROM civicrm_website WHERE contact_id = %1", $params);
+	$website_result->fetch();
+	$church['website']=$website_result->url;
+	
+	//about
+	
+	
+	
+	$about['who']=implode(', ', explode(chr(1), substr($church_custom_data['custom_7'],1,-1)));
+	$about['county']=$church_custom_data['custom_2'];	
+	$about['dbc']=$church_custom_data['custom_3'];
+	$about['ward']=$church_custom_data['custom_4'];
+	$about['circuit'];
+	$about['district'];
+	
+	//links
+	$links['map'];
+	
+	//map
+	drupal_add_js("$(document).ready(function(){
+    var latlng = new google.maps.LatLng({$church['geo_code_1']}, {$church['geo_code_2']});
+    var myOptions = {
+      zoom: 14,
+      center: latlng,
+      mapTypeId: google.maps.MapTypeId.ROADMAP
+    };
+    var map = new google.maps.Map(document.getElementById('map_canvas'),
+        myOptions);
+	var marker = new google.maps.Marker({
+	      position: latlng, 
+	      map: map, 
+	      title:\"{$church['display_name']}\"
+	  });
+	marker.setMap(map);  
+
+  })", 'inline');
+	$links['stats'];
+	$links['ons']=$church_custom_data['custom_1'];
+	
+	//docs
+	require_once('api/File.php');
+	$files=array(
+		1 => $church_custom_data['custom_9'],
+		2 => $church_custom_data['custom_10'],
+		3 => $church_custom_data['custom_11']
+	);
+	foreach($files as $k => $v){
+		$params=array('id' => $v);
+		$filepath[$k]=crm_get_file($params);
+		$docs[$k]=CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}";
+	}
+		
+	return theme('cic_directory_church', $church, $address_block, $about, $links, $docs);
+}
+
+
+
+
+
