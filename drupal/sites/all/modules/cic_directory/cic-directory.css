@@ -1,23 +1,82 @@
 div#cross_container{
 	width:950px;
+	display:table;
 	
 }
 
 div.quarter {
-	border: 1px solid silver;
-	padding: 0px 20px;
-	margin:9px;
-	width:400px;
-	height: 400px;
+	margin:20px;
+	width:250px;
+	height: 250px;
 	float: left;
+	color:white;
+}
+
+div.quarter p {
+	color:white;
+	font-size:100%;
+}
+
+div.quarter h3{
+	color:yellow;
+	font-size:130%;
+	padding-bottom:0.7em;
+}
+
+.data .label {
+	color:yellow;	
+}
+
+.data .value {
+	font-weight:bold;
+}
+
+.quarter a, .quarter a:link, .quarter a:active, .quarter a:visited{
+	color: white;
+	text-decoration: underline;
+}
+
+.quarter #map_container {
+	margin-left:30px;
+	margin-bottom:15px;
 }
 
 .quarter #map_canvas {
 	width:100%;
-	height:250px
+	height:150px;
 }
 
 div#cross_footer{
 	clear:both;
 	
+}
+
+#q1 {
+	background-image:url('images/q1.png');
+}
+#q2 {
+	background-image:url('images/q2.png');
+}
+#q3 {
+	background-image:url('images/q3.png');
+}
+#q4 {
+	background-image:url('images/q4.png');
+}
+.ql {
+	padding-left: 110px;
+	padding-right: 40px;
+	text-align: right;
+}
+.qr {
+	padding-left: 40px;
+	padding-right: 110px;
+}
+.qt {
+	padding-top: 100px;
+	padding-bottom: 50px;
+}
+.qb {
+	padding-top: 30px;
+	padding-bottom: 120px;
 }

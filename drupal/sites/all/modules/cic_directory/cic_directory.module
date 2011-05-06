@@ -1,8 +1,23 @@
 <?php
 
 function cic_directory_menu() {
+	$items['directory'] = array(
+		'page callback' => 'cic_directory_search',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK
+	);
 	$items['directory/view'] = array(
 		'page callback' => 'cic_directory_view',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK
+	);
+	$items['directory/search'] = array(
+		'page callback' => 'cic_directory_search',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK
+	);
+	$items['directory/results'] = array(
+		'page callback' => 'cic_directory_results',
 		'access callback' => TRUE,
 		'type' => MENU_CALLBACK
 	);
@@ -11,29 +26,204 @@ function cic_directory_menu() {
 
 function cic_directory_theme() {
 	return array(
-		'cic_directory_church' => array(
+		'cic_directory_view' => array(
 			'arguments' => array('church' => NULL,'address_block' => NULL, 'about' => NULL, 'links' => NULL, 'docs' => NULL),
-			'template' => 'cic-directory-church',
+			'template' => 'cic-directory-view',
+	),
+		'cic_directory_search' => array(
+			'arguments' => array('form' => NULL,'results' => NULL, 'pager' => NULL),
+			'template' => 'cic-directory-search',
 	)
   );
 }
 
 
 
+function cic_directory_search_form() {
+		
+	$who_options[]=$where_options[]=$district_options[]=' - select - ';
+	
+	$result = db_query('SELECT `label` FROM {civicrm_option_value} WHERE option_group_id=63');
+	while ($data = db_fetch_object($result)){
+		$who_options[$data->label]=$data->label;
+	}
+	$result = db_query('SELECT DISTINCT `district_borough_council_3` FROM {civicrm_value_location_details_2}');
+	while ($data = db_fetch_object($result)){
+		if(trim($data->district_borough_council_3)){
+			$where_options[$data->district_borough_council_3]=$data->district_borough_council_3;
+		}
+	}
+	$result = db_query('SELECT id, name FROM {civicrm_membership_type}');
+	while ($data = db_fetch_object($result)){
+		if(trim($data->name)!='-'){
+			$district_options[$data->id]=$data->name;
+		}
+	}
+	
+	$form['#method'] = 'post';
+	$form['#action'] = '/directory/results';
+	$form['name'] = array(
+		'#title' => 'Church name',
+		'#type' => 'textfield',
+		'#description' => 'Type a full or partial church name',
+		'#default_value' => $_SESSION['cic_directory']['name']
+	);
+	$form['district'] = array(
+		'#title' => 'District',
+		'#type' => 'select',
+		'#options' => $district_options,		
+		'#description' => 'What district is this Church in?',
+		'#default_value' => $_SESSION['cic_directory']['district']
+	);
+	$form['who'] = array(
+		'#title' => 'Who',
+		'#type' => 'select',
+		'#options' => $who_options,		
+		'#description' => 'Who does the church work with?',
+		'#default_value' => $_SESSION['cic_directory']['who']
+	);
+	$form['where'] = array(
+		'#title' => 'Where',
+		'#type' => 'select',
+		'#options' => $where_options,		
+		'#description' => 'Where does the church work?',
+		'#default_value' => $_SESSION['cic_directory']['where']
+	);
+	$form['search'] = array(
+		'#type' => 'submit',
+		'#value' => 'Search'
+	);
+	return $form;
+}
+
+function cic_directory_get_form_elements() {
+	foreach(cic_directory_search_form() as $k => $v) {
+		if(substr($k, 0, 1)!='#'){
+			$array[]=$k;
+		}
+	}
+	return $array;
+}
+
+function cic_directory_search_form_submit($form, &$form_state) {
+	foreach(cic_directory_get_form_elements() as $v) {
+		$_SESSION['cic_directory'][$v]=$form_state['values'][$v];
+	}
+}
+
+
+function cic_directory_search() {
+	
+	drupal_set_title('Search directory');
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	
+	// Set Breadcrumbs
+	drupal_set_breadcrumb($breadcrumb);
+	
+	
+	foreach(cic_directory_get_form_elements() as $v) {
+	unset($_SESSION['cic_directory'][$v]);
+	}	
+	$form = drupal_get_form('cic_directory_search_form');
+	return theme('cic_directory_search', $form);
+	
+	
+}
+
+function cic_directory_results() {
+	
+	drupal_set_title('Results');
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	$breadcrumb[] = l('search directory', 'directory/search');
+	drupal_set_breadcrumb($breadcrumb);
+	
+	civicrm_initialize(TRUE);
+	
+	//get form
+	$form = drupal_get_form('cic_directory_search_form');
+	
+	//build query
+	$select_clauses[] = "SELECT cc.id as contact_id, cc.display_name, ca.*, cwho.who_do_they_serve_7 as who, cwhere.district_borough_council_3 as `where` ";
+	$from_clauses[] = "FROM `civicrm_contact` AS cc";
+	$from_clauses[] = "LEFT JOIN `civicrm_address` AS ca ON cc.id=ca.contact_id AND ca.is_primary";
+	$from_clauses[] = "LEFT JOIN `civicrm_value_who_do_they_serve_details_3` AS cwho ON cc.id=cwho.entity_id";
+	$from_clauses[] = "LEFT JOIN `civicrm_value_location_details_2` AS cwhere ON cc.id=cwhere.entity_id";
+	$from_clauses[] = "LEFT JOIN `civicrm_membership` AS cmem ON cc.id=cmem.contact_id";
+	$where_clauses[] = "WHERE `contact_sub_type`='Church'";
+	$order_by_clauses[] = "ORDER BY display_name ASC";
+	
+	if(isset($_SESSION['cic_directory']['name']) && $_SESSION['cic_directory']['name']!=''){
+		$where_clauses[] = 'AND cc.display_name LIKE "%%%s%%"';
+		$arg[]=$_SESSION['cic_directory']['name'];
+	}
+	if(isset($_SESSION['cic_directory']['district']) && $_SESSION['cic_directory']['district']!=0){
+		$where_clauses[] = "AND cmem.membership_type_id = %d";
+		$arg[]=$_SESSION['cic_directory']['district'];
+	}
+	if(isset($_SESSION['cic_directory']['who']) && $_SESSION['cic_directory']['who']!='0'){
+		$where_clauses[] = 'AND cwho.who_do_they_serve_7 LIKE "%%%s%%"';
+		$arg[]=$_SESSION['cic_directory']['who'];
+	}
+	if(isset($_SESSION['cic_directory']['where']) && $_SESSION['cic_directory']['where']!=='0'){
+		$where_clauses[] = 'AND cwhere.district_borough_council_3 LIKE "%%%s%%"';
+		$arg[]=$_SESSION['cic_directory']['where'];
+	}
+	
+	$select=implode("\n", $select_clauses);
+	$from=implode("\n", $from_clauses);
+	$where=implode("\n", $where_clauses);
+	$order_by=implode("\n", $order_by_clauses);
+	
+ 	$sql = "$select\n$from\n$where\n$order_by";
+	
+	
+//	print_r($sql); exit;
+	$limit = 20;
+	$result = pager_query(
+		$sql,
+		$limit,
+		NULL,
+		NULL,
+		$arg[0],
+		$arg[1],
+		$arg[2],
+		$arg[3]
+	);
+//	print_r($result);exit;
+	$header = array('name', 'address', 'who', 'where');
+	
+	require_once 'CRM/Utils/Address.php';
+	while ($data = db_fetch_object($result)) {
+
+		$address=CRM_Utils_Address::format((array)$data);
+
+		// make link on display name
+		$link = "<a href='/directory/view/{$data->contact_id}'>{$data->display_name}</a>";
+		$rows[] = array('name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))), 'where' => $data->where);
+	}
+	
+	$results = theme_table($header, $rows, $attributes = array(), $caption = NULL);
+
+
+	$pager = theme('pager', NULL, $limit, NULL);
+	return theme('cic_directory_search', $form, $results, $pager);
+}
+
 function cic_directory_view($contact_id) {
 	
 	//init CiviCRM
 	civicrm_initialize(TRUE);
 	
+	$count = db_result(db_query("SELECT count(*) FROM `civicrm_contact` WHERE NOT is_deleted AND `contact_sub_type`='Church' AND id=%d", $contact_id));
+	if(!$count){
+		drupal_goto('/directory/search');
+	};
+	
 	//ACL check whether this Church is allowed to be viewed
 	
 	// Build Breadcrumbs
-	$breadcrumb = array();
-	$breadcrumb[] = l('Home', '<front>');
-	$breadcrumb[] = l('Directory', 'Directory');
-
-	// Set Breadcrumbs
-	drupal_set_breadcrumb($breadcrumb);
 	drupal_add_css(drupal_get_path('module', 'cic_directory') . '/cic-directory.css');	
 	//get the contact
 	require_once('api/v2/Contact.php');
@@ -69,6 +259,13 @@ function cic_directory_view($contact_id) {
 	//set page title
 	drupal_set_title($church['display_name']);
 	
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	$breadcrumb[] = l('search directory', 'directory/results');
+	$breadcrumb[] = l('results', 'directory/results');
+
+	// Set Breadcrumbs
+	drupal_set_breadcrumb($breadcrumb);
 	
 	
 	//contact
@@ -78,21 +275,23 @@ function cic_directory_view($contact_id) {
 	$website_result = CRM_Core_DAO::executeQuery("SELECT url FROM civicrm_website WHERE contact_id = %1", $params);
 	$website_result->fetch();
 	$church['website']=$website_result->url;
+	$church['contact']=db_result(db_query('SELECT ind.display_name
+FROM civicrm_contact AS ind
+JOIN civicrm_relationship AS rel ON rel.contact_id_a=ind.id
+JOIN civicrm_contact AS org ON rel.contact_id_b=org.id
+WHERE org.id=%d',$contact_id));
+	
 	
 	//about
-	
-	
-	
+		
 	$about['who']=implode(', ', explode(chr(1), substr($church_custom_data['custom_7'],1,-1)));
 	$about['county']=$church_custom_data['custom_2'];	
 	$about['dbc']=$church_custom_data['custom_3'];
 	$about['ward']=$church_custom_data['custom_4'];
-	$about['circuit'];
-	$about['district'];
+	$about['circuit']=db_result(db_query('SELECT name FROM civicrm_membership AS cmem JOIN civicrm_membership_type AS cmemtype ON cmem.membership_type_id=cmemtype.id AND cmem.contact_id=%d',$contact_id));
+	$about['district']=cic_directory_get_district($about['circuit']);
 	
 	//links
-	$links['map'];
-	
 	//map
 	drupal_add_js("$(document).ready(function(){
     var latlng = new google.maps.LatLng({$church['geo_code_1']}, {$church['geo_code_2']});
@@ -111,7 +310,8 @@ function cic_directory_view($contact_id) {
 	marker.setMap(map);  
 
   })", 'inline');
-	$links['stats'];
+	$links['map_link']="<a href='http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}'>View on google maps</a>";
+	$links['stats']="<a href=http://www.stats4mission.org.uk/begin/'>stats4mission</a>";
 	$links['ons']=$church_custom_data['custom_1'];
 	
 	//docs
@@ -127,10 +327,118 @@ function cic_directory_view($contact_id) {
 		$docs[$k]=CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}";
 	}
 		
-	return theme('cic_directory_church', $church, $address_block, $about, $links, $docs);
+	return theme('cic_directory_view', $church, $address_block, $about, $links, $docs);
 }
 
+function cic_directory_get_district($circuit){
+	$translation=array(
+		"Altrincham (19/8)" => "Manchester and Stockport (19)",
+		"Ashton-under-Lyne (19/23)" => "Manchester and Stockport (19)",
+		"Bramhall (19/15)" => "Manchester and Stockport (19)",
+		"Buxton (19/18)" => "Manchester and Stockport (19)",
+		"Glossop (19/21)" => "Manchester and Stockport (19)",
+		"Hazel Grove and Poynton (19/14)" => "Manchester and Stockport (19)",
+		"High Peak (19/20)" => "Manchester and Stockport (19)",
+		"Hyde and Denton (19/22)" => "Manchester and Stockport (19)",
+		"Macclesfield (19/24)" => "Manchester and Stockport (19)",
+		"Manchester (19/1)" => "Manchester and Stockport (19)",
+		"Oldham and Saddleworth (19/11)" => "Manchester and Stockport (19)",
+		"Romiley (19/16)" => "Manchester and Stockport (19)",
+		"Sale (19/9)" => "Manchester and Stockport (19)",
+		"Salford (19/3)" => "Manchester and Stockport (19)",
+		"Shaw and Royton (19/12)" => "Manchester and Stockport (19)",
+		"Stockport (19/13)" => "Manchester and Stockport (19)",
+		"Stretford and Urmston (19/7)" => "Manchester and Stockport (19)",
+		"Whaley Bridge Uniting Partnership (19/17)" => "Manchester and Stockport (19)",
+		"Wythenshawe (19/25)" => "Manchester and Stockport (19)",
+		"Alderley Edge and Knutsford (19/19)" => "Manchester and Stockport (19)",
+		"Bolton (6/1)" => "Bolton & Rochdale (6)",
+		"Victoria Hall (6/2)" => "Bolton & Rochdale (6)",
+		"Farnworth and Worsley (6/3)" => "Bolton & Rochdale (6)",
+		"Rochdale and Littleborough (6/4)" => "Bolton & Rochdale (6)",
+		"Wigan (6/5)" => "Bolton & Rochdale (6)",
+		"Leigh and Hindley (6/7)" => "Bolton & Rochdale (6)",
+		"Bury and Heywood (6/8)" => "Bolton & Rochdale (6)",
+		"Prestwich and Radcliffe (6/9)" => "Bolton & Rochdale (6)",
+		"Rossendale (6/14)" => "Bolton & Rochdale (6)",
+		"Carlisle (9/1)" => "Cumbria (9)",
+		"Brampton (9/2)" => "Cumbria (9)",
+		"Alston (9/3)" => "Cumbria (9)",
+		"Whitehaven (9/4)" => "Cumbria (9)",
+		"Solway (9/5)" => "Cumbria (9)",
+		"Keswick and Cockermouth (9/6)" => "Cumbria (9)",
+		"Kirkby Stephen, Appleby and Tebay (9/7)" => "Cumbria (9)",
+		"Sedbergh (9/8)" => "Cumbria (9)",
+		"Penrith (9/9)" => "Cumbria (9)",
+		"Kirkoswald (9/10)" => "Cumbria (9)",
+		"Wigton (9/12)" => "Cumbria (9)",
+		"Kendal (9/13)" => "Cumbria (9)",
+		"Ambleside and Windermere (9/14)" => "Cumbria (9)",
+		"Ulverston (9/15)" => "Cumbria (9)",
+		"South West Cumbria (9/16)" => "Cumbria (9)",
+		"Chester (11/1)" => "Chester and Stoke-on-Trent (11)",
+		"Runcorn (11/2)" => "Chester and Stoke-on-Trent (11)",
+		"Delamere Forest (11/3)" => "Chester and Stoke-on-Trent (11)",
+		"Northwich and Winsford (11/4)" => "Chester and Stoke-on-Trent (11)",
+		"Middlewich (11/5)" => "Chester and Stoke-on-Trent (11)",
+		"Cheshire South (11/8)" => "Chester and Stoke-on-Trent (11)",
+		"Mow Cop, Biddulph and Congleton (11/9)" => "Chester and Stoke-on-Trent (11)",
+		"Market Drayton (11/14)" => "Chester and Stoke-on-Trent (11)",
+		"Stoke-on-Trent North (11/15)" => "Chester and Stoke-on-Trent (11)",
+		"Kidsgrove (11/16)" => "Chester and Stoke-on-Trent (11)",
+		"Stoke-on-Trent (Burslem Mission) (11/18)" => "Chester and Stoke-on-Trent (11)",
+		"Stoke-on-Trent (South) (11/20)" => "Chester and Stoke-on-Trent (11)",
+		"Wolstanton and Audley (11/22)" => "Chester and Stoke-on-Trent (11)",
+		"Newcastle (Staffs) (11/23)" => "Chester and Stoke-on-Trent (11)",
+		"Leek (11/24)" => "Chester and Stoke-on-Trent (11)",
+		"Cheadle (11/25)" => "Chester and Stoke-on-Trent (11)",
+		"Isle of Man (15/1)" => "Isle of Man (15)",
+		"Liverpool (North) (18/1)" => "Liverpool (18)",
+		"Liverpool (North Central) (18/3)" => "Liverpool (18)",
+		"Liverpool (City Centre Ministry) (18/4)" => "Liverpool (18)",
+		"Liverpool (South) (18/5)" => "Liverpool (18)",
+		"Liverpool (Linacre Mission) (18/7)" => "Liverpool (18)",
+		"Crosby (18/8)" => "Liverpool (18)",
+		"Wirral (18/9)" => "Liverpool (18)",
+		"St. Helens and Prescot (18/13)" => "Liverpool (18)",
+		"Makerfield (18/14)" => "Liverpool (18)",
+		"Warrington (18/15)" => "Liverpool (18)",
+		"Widnes (18/16)" => "Liverpool (18)",
+		"Southport (18/17)" => "Liverpool (18)",
+		"Southport (Banks and Hesketh Bank) (18/18)" => "Liverpool (18)",
+		"Ormskirk (18/19)" => "Liverpool (18)",
+		"Skelmersdale (18/20)" => "Liverpool (18)",
+		"Burnley (21/1)" => "Lancashire District (21)",
+		"Blackburn (21/2)" => "Lancashire District (21)",
+		"Great Harwood (21/3)" => "Lancashire District (21)",
+		"Darwen (21/4)" => "Lancashire District (21)",
+		"Accrington and Haslingden (21/5)" => "Lancashire District (21)",
+		"Pendle (21/6)" => "Lancashire District (21)",
+		"Clitheroe (21/9)" => "Lancashire District (21)",
+		"Chorley and Leyland (21/10)" => "Lancashire District (21)",
+		"Preston Ribble (21/11)" => "Lancashire District (21)",
+		"Blackpool (21/12)" => "Lancashire District (21)",
+		"South Fylde (21/14)" => "Lancashire District (21)",
+		"North Fylde (21/15)" => "Lancashire District (21)",
+		"Garstang (21/16)" => "Lancashire District (21)",
+		"Lancaster (21/17)" => "Lancashire District (21)",
+		"Morecambe and Heysham (21/18)" => "Lancashire District (21)"
+	);
+	return $translation[$circuit];
+}
 
-
-
-
+function cic_directory_theme_var($label, $value, $style = 'sl'){
+	if($value==''){
+		return;
+	}
+	switch($style) {
+		case 'sl': //same line
+			return "<div class='data'><span class='label'>$label: </span><span class='value'>$value</span></div>";
+		case 'email': //same line
+			return "<div class='data'><span class='label'>$label: </span><span class='value'><a href='mailto:{$value}'>{$value}</a></span></div>";
+		case 'url': //same line
+			return "<div class='data'><span class='label'>$label: </span><span class='value'><a href='{$value}'>{$value}</a></span></div>";
+	}
+	
+	
+}
