@@ -24,13 +24,14 @@
 
 <div class='quarter qb ql' id='q3'>
 	<h3>Maps and links</h3>
-	<?php print cic_directory_theme_var('', $links['map_link'], 'image', $links['map_link_image']); ?>	
-	<?php print cic_directory_theme_var('', $links['ons'], 'image', $links['ons_image']); ?>	
-	<?php print cic_directory_theme_var('', $links['stats'], 'image', $links['stats_image']); ?>	
+	<?php print cic_directory_theme_var('View on Google maps', $links['map'], 'url', array('type'=>'image','file'=>'globe.png')); ?>	
+	<?php print cic_directory_theme_var('Stats for mission', $links['stats'], 'url', array('type'=>'image','file'=>'s4m.png')); ?>	
+	<?php print cic_directory_theme_var('ONS statistics', $links['ons'], 'url', array('type'=>'image','file'=>'stats.png')); ?>	
 	</div>
 
 <div class='quarter qb qr' id='q4'>
 	<h3>Documents</h3>
+	<?php print cic_directory_theme_var('', $docs['none']); ?>	
 	<?php print cic_directory_theme_var('', $docs['1']); ?>	
 	<?php print cic_directory_theme_var('', $docs['2']); ?>	
 	<?php print cic_directory_theme_var('', $docs['3']); ?>	

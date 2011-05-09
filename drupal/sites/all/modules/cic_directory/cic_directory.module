@@ -219,13 +219,14 @@ function cic_directory_results() {
 	require_once 'CRM/Utils/Address.php';
 	while ($data = db_fetch_object($result)) {
 		$address=CRM_Utils_Address::format((array)$data);
-
 		// make link on display name
 		$link = "<a href='/directory/view/{$data->contact_id}'>{$data->display_name}</a>";
 		$rows[] = array('name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))), 'where' => $data->where);
 	}
+	if(count($rows)){
+		$results = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
+	}
 	
-	$results = theme_table($header, $rows, $attributes = array(), $caption = NULL);
 
 
 	$pager = theme('pager', NULL, $limit, NULL);
@@ -282,7 +283,7 @@ function cic_directory_view($contact_id) {
 	
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
-	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/results');
+	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
 	$breadcrumb[] = l('Results'	, 'directory/results');
 
 	// Set Breadcrumbs
@@ -313,16 +314,15 @@ WHERE org.id=%d',$contact_id));
 	$about['district']=cic_directory_get_district($about['circuit']);
 	
 	//links
-	//map
-	$links['map_link']="<a href='http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}'>View on google maps</a>";
-	$links['map_link_image']="<a href='http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}'><img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/globe.png'></a>";
-	$links['ons']=$church_custom_data['custom_1'];
-	$links['ons_image']="<img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/stats.png'>";
-	$links['stats']="<a href='http://www.stats4mission.org.uk/begin/'>stats4mission</a>";
-	$links['stats_image']="<a href='http://www.stats4mission.org.uk/begin/'><img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/s4m.png'></a>";
+	$links['map']="http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}";
+	if(strlen($church['postal_code']) == 0 && nbhstats_verify_postcode($church['postal_code'])) {
+		$links['ons']='';
+	} else {
+		$links['ons']="http://neighbourhood.statistics.gov.uk/dissemination/NeighbourhoodSummary.do?width=0&i=0&profileSearchText={$church['postal_code']}";
+	}
+	$links['stats']="http://www.stats4mission.org.uk/begin/";
 	
-	"";
-	
+		
 	//docs
 	require_once('api/File.php');
 	$files=array(
@@ -337,6 +337,9 @@ WHERE org.id=%d',$contact_id));
 			// print_r($result);exit;
 			$docs[$k]="<a href=".CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}>Document $k</a>";
 		}
+	}
+	if(!count($docs)){
+		$docs['none']='[none available]';
 	}
 		
 	return theme('cic_directory_view', $church, $address_block, $about, $links, $docs);
@@ -443,19 +446,22 @@ function cic_directory_theme_var($label, $value, $style = 'sl', $extra=NULL){
 	if($value==''){
 		return;
 	}
+	if(is_array($extra)){
+		if($extra['type']='image'){
+			$append=" <a href='{$value}'><img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/{$extra['file']}'></a>";
+		}		
+	}
 	switch($style) {
-		case 'image': //same line
-		$append=$extra;
 		case 'sl': //same line
 			if($label==''){
-				return "<div class='data'><span class='value'>$value</span> $append</div>";				
+				return "<p class='data'><span class='value'>$value</span> $append</p>";				
 			}else{
-				return "<div class='data'><span class='label'>$label: </span><span class='value'>$value</span></div>$append";				
+				return "<p class='data'><span class='label'>$label: </span><span class='value'>$value</span>$append</p>";				
 			}
 		case 'email': //same line
-			return "<div class='data'><span class='label'>$label: </span><span class='value'><a href='mailto:{$value}'>{$value}</a></span></div>";
+			return "<p class='data'><span class='label'>$label: </span><span class='value'><a href='mailto:{$value}'>{$value}</a></span>$append</p>";
 		case 'url': //same line
-			return "<div class='data'><span class='label'>$label: </span><span class='value'><a href='{$value}'>{$value}</a></span></div>";
+			return "<p class='data'><span class='value'><a href='{$value}'>{$label}</a></span>$append</p>";
 	}
 	
 	
