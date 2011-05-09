@@ -11,8 +11,8 @@ function cic_directory_menu() {
 	$items['directory/autocomplete/church'] = array(
 		'title' => t('Church autocomplete'),
 		'page callback' => 'cic_directory_church_autocomplete',
+		'type' => MENU_CALLBACK,
 		'access callback' => TRUE,
-		'menu_name' => 'non-existent'
 	);
 	$items['directory/view'] = array(
 		'page callback' => 'cic_directory_view',
@@ -118,7 +118,8 @@ function cic_directory_search_form() {
 }
 
 function cic_directory_get_form_elements() {
-	foreach(cic_directory_search_form() as $k => $v) {
+	$search_form=cic_directory_search_form();
+	foreach($search_form['search'] as $k => $v) {
 		if(substr($k, 0, 1)!='#'){
 			$array[]=$k;
 		}
