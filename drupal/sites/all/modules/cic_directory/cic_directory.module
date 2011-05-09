@@ -51,7 +51,7 @@ function cic_directory_theme() {
 			'template' => 'cic-directory-view',
 	),
 		'cic_directory_search' => array(
-			'arguments' => array('form' => NULL,'Results' => NULL, 'pager' => NULL),
+			'arguments' => array('form' => NULL,'results' => NULL, 'pager' => NULL),
 			'template' => 'cic-directory-search',
 	)
   );

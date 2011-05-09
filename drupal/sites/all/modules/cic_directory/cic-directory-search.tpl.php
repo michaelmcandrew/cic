@@ -1,7 +1,6 @@
 
 <div id='form'>
 
-<p>Introductory text.</p>
 
 <?php echo $form; ?>
 
