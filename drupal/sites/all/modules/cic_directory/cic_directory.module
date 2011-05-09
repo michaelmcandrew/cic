@@ -1,10 +1,18 @@
 <?php
 
+define(DATABASE_SEARCH, 'Database search');
+
 function cic_directory_menu() {
 	$items['directory'] = array(
 		'page callback' => 'cic_directory_search',
 		'access callback' => TRUE,
 		'type' => MENU_CALLBACK
+	);
+	$items['directory/autocomplete/church'] = array(
+		'title' => t('Church autocomplete'),
+		'page callback' => 'cic_directory_church_autocomplete',
+		'access callback' => TRUE,
+		'menu_name' => 'non-existent'
 	);
 	$items['directory/view'] = array(
 		'page callback' => 'cic_directory_view',
@@ -24,6 +32,18 @@ function cic_directory_menu() {
 	return $items;
 }
 
+function cic_directory_church_autocomplete($string = '') {
+  $matches = array();
+  if ($string) {
+    $result = db_query_range("SELECT display_name FROM {civicrm_contact} WHERE LOWER(display_name) LIKE LOWER('%%%s%%') AND (`contact_sub_type`='Church' OR `contact_sub_type`='Project') ORDER BY display_name", $string, 0, 10);
+    while ($line = db_fetch_object($result)) {
+      $matches[$line->display_name] = $line->display_name;
+    }
+  }
+  drupal_json($matches);
+}
+
+
 function cic_directory_theme() {
 	return array(
 		'cic_directory_view' => array(
@@ -31,7 +51,7 @@ function cic_directory_theme() {
 			'template' => 'cic-directory-view',
 	),
 		'cic_directory_search' => array(
-			'arguments' => array('form' => NULL,'results' => NULL, 'pager' => NULL),
+			'arguments' => array('form' => NULL,'Results' => NULL, 'pager' => NULL),
 			'template' => 'cic-directory-search',
 	)
   );
@@ -59,37 +79,38 @@ function cic_directory_search_form() {
 			$district_options[$data->id]=$data->name;
 		}
 	}
-	
+	$form['search']['#type']='fieldset';
 	$form['#method'] = 'post';
 	$form['#action'] = '/directory/results';
-	$form['name'] = array(
+	$form['search']['name'] = array(
 		'#title' => 'Church name',
 		'#type' => 'textfield',
-		'#description' => 'Type a full or partial church name',
+		'#description' => 'Type a full or partial name',
+		'#autocomplete_path' => 'directory/autocomplete/church',  
 		'#default_value' => $_SESSION['cic_directory']['name']
 	);
-	$form['district'] = array(
-		'#title' => 'District',
+	$form['search']['district'] = array(
+		'#title' => 'Circuit/District',
 		'#type' => 'select',
 		'#options' => $district_options,		
-		'#description' => 'What district is this Church in?',
+		'#description' => 'What Circuit or District is the Church or Project in?',
 		'#default_value' => $_SESSION['cic_directory']['district']
 	);
-	$form['who'] = array(
-		'#title' => 'Who',
+	$form['search']['who'] = array(
+		'#title' => 'Whom we serve',
 		'#type' => 'select',
 		'#options' => $who_options,		
-		'#description' => 'Who does the church work with?',
+		'#description' => 'Whom do they work with?',
 		'#default_value' => $_SESSION['cic_directory']['who']
 	);
-	$form['where'] = array(
+	$form['search']['where'] = array(
 		'#title' => 'Where',
 		'#type' => 'select',
 		'#options' => $where_options,		
-		'#description' => 'Where does the church work?',
+		'#description' => 'In which geographical area do they work?',
 		'#default_value' => $_SESSION['cic_directory']['where']
 	);
-	$form['search'] = array(
+	$form['search']['search'] = array(
 		'#type' => 'submit',
 		'#value' => 'Search'
 	);
@@ -114,7 +135,7 @@ function cic_directory_search_form_submit($form, &$form_state) {
 
 function cic_directory_search() {
 	
-	drupal_set_title('Search directory');
+	drupal_set_title(DATABASE_SEARCH);
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
 	
@@ -136,7 +157,7 @@ function cic_directory_results() {
 	drupal_set_title('Results');
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
-	$breadcrumb[] = l('search directory', 'directory/search');
+	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
 	drupal_set_breadcrumb($breadcrumb);
 	
 	civicrm_initialize(TRUE);
@@ -145,13 +166,13 @@ function cic_directory_results() {
 	$form = drupal_get_form('cic_directory_search_form');
 	
 	//build query
-	$select_clauses[] = "SELECT cc.id as contact_id, cc.display_name, ca.*, cwho.who_do_they_serve_7 as who, cwhere.district_borough_council_3 as `where` ";
+	$select_clauses[] = "SELECT ca.*, cc.id as contact_id, cc.display_name, cwho.who_do_they_serve_7 as who, cwhere.district_borough_council_3 as `where` ";
 	$from_clauses[] = "FROM `civicrm_contact` AS cc";
 	$from_clauses[] = "LEFT JOIN `civicrm_address` AS ca ON cc.id=ca.contact_id AND ca.is_primary";
 	$from_clauses[] = "LEFT JOIN `civicrm_value_who_do_they_serve_details_3` AS cwho ON cc.id=cwho.entity_id";
 	$from_clauses[] = "LEFT JOIN `civicrm_value_location_details_2` AS cwhere ON cc.id=cwhere.entity_id";
 	$from_clauses[] = "LEFT JOIN `civicrm_membership` AS cmem ON cc.id=cmem.contact_id";
-	$where_clauses[] = "WHERE `contact_sub_type`='Church'";
+	$where_clauses[] = "WHERE NOT is_deleted AND (`contact_sub_type`='Church' OR `contact_sub_type`='Project') ";
 	$order_by_clauses[] = "ORDER BY display_name ASC";
 	
 	if(isset($_SESSION['cic_directory']['name']) && $_SESSION['cic_directory']['name']!=''){
@@ -179,7 +200,7 @@ function cic_directory_results() {
  	$sql = "$select\n$from\n$where\n$order_by";
 	
 	
-//	print_r($sql); exit;
+	//print_r($sql); exit;
 	$limit = 20;
 	$result = pager_query(
 		$sql,
@@ -196,7 +217,6 @@ function cic_directory_results() {
 	
 	require_once 'CRM/Utils/Address.php';
 	while ($data = db_fetch_object($result)) {
-
 		$address=CRM_Utils_Address::format((array)$data);
 
 		// make link on display name
@@ -216,7 +236,7 @@ function cic_directory_view($contact_id) {
 	//init CiviCRM
 	civicrm_initialize(TRUE);
 	
-	$count = db_result(db_query("SELECT count(*) FROM `civicrm_contact` WHERE NOT is_deleted AND `contact_sub_type`='Church' AND id=%d", $contact_id));
+	$count = db_result(db_query("SELECT count(*) FROM `civicrm_contact` WHERE NOT is_deleted AND (`contact_sub_type`='Church' OR `contact_sub_type`='Project')  AND id=%d", $contact_id));
 	if(!$count){
 		drupal_goto('/directory/search');
 	};
@@ -261,8 +281,8 @@ function cic_directory_view($contact_id) {
 	
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
-	$breadcrumb[] = l('search directory', 'directory/results');
-	$breadcrumb[] = l('results', 'directory/results');
+	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/results');
+	$breadcrumb[] = l('Results'	, 'directory/results');
 
 	// Set Breadcrumbs
 	drupal_set_breadcrumb($breadcrumb);
@@ -277,7 +297,7 @@ function cic_directory_view($contact_id) {
 	$church['website']=$website_result->url;
 	$church['contact']=db_result(db_query('SELECT ind.display_name
 FROM civicrm_contact AS ind
-JOIN civicrm_relationship AS rel ON rel.contact_id_a=ind.id
+JOIN civicrm_relationship AS rel ON rel.contact_id_a=ind.id AND rel.relationship_type_id=12
 JOIN civicrm_contact AS org ON rel.contact_id_b=org.id
 WHERE org.id=%d',$contact_id));
 	
@@ -293,26 +313,14 @@ WHERE org.id=%d',$contact_id));
 	
 	//links
 	//map
-	drupal_add_js("$(document).ready(function(){
-    var latlng = new google.maps.LatLng({$church['geo_code_1']}, {$church['geo_code_2']});
-    var myOptions = {
-      zoom: 14,
-      center: latlng,
-      mapTypeId: google.maps.MapTypeId.ROADMAP
-    };
-    var map = new google.maps.Map(document.getElementById('map_canvas'),
-        myOptions);
-	var marker = new google.maps.Marker({
-	      position: latlng, 
-	      map: map, 
-	      title:\"{$church['display_name']}\"
-	  });
-	marker.setMap(map);  
-
-  })", 'inline');
 	$links['map_link']="<a href='http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}'>View on google maps</a>";
-	$links['stats']="<a href=http://www.stats4mission.org.uk/begin/'>stats4mission</a>";
+	$links['map_link_image']="<a href='http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}'><img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/globe.png'></a>";
 	$links['ons']=$church_custom_data['custom_1'];
+	$links['ons_image']="<img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/stats.png'>";
+	$links['stats']="<a href='http://www.stats4mission.org.uk/begin/'>stats4mission</a>";
+	$links['stats_image']="<a href='http://www.stats4mission.org.uk/begin/'><img style='vertical-align:middle;' src='/sites/all/modules/cic_directory/images/s4m.png'></a>";
+	
+	"";
 	
 	//docs
 	require_once('api/File.php');
@@ -322,9 +330,12 @@ WHERE org.id=%d',$contact_id));
 		3 => $church_custom_data['custom_11']
 	);
 	foreach($files as $k => $v){
-		$params=array('id' => $v);
-		$filepath[$k]=crm_get_file($params);
-		$docs[$k]=CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}";
+		if($v!=''){
+			$params=array('id' => $v);
+			// $result=crm_get_file($params);
+			// print_r($result);exit;
+			$docs[$k]="<a href=".CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}>Document $k</a>";
+		}
 	}
 		
 	return theme('cic_directory_view', $church, $address_block, $about, $links, $docs);
@@ -427,13 +438,19 @@ function cic_directory_get_district($circuit){
 	return $translation[$circuit];
 }
 
-function cic_directory_theme_var($label, $value, $style = 'sl'){
+function cic_directory_theme_var($label, $value, $style = 'sl', $extra=NULL){
 	if($value==''){
 		return;
 	}
 	switch($style) {
+		case 'image': //same line
+		$append=$extra;
 		case 'sl': //same line
-			return "<div class='data'><span class='label'>$label: </span><span class='value'>$value</span></div>";
+			if($label==''){
+				return "<div class='data'><span class='value'>$value</span> $append</div>";				
+			}else{
+				return "<div class='data'><span class='label'>$label: </span><span class='value'>$value</span></div>$append";				
+			}
 		case 'email': //same line
 			return "<div class='data'><span class='label'>$label: </span><span class='value'><a href='mailto:{$value}'>{$value}</a></span></div>";
 		case 'url': //same line
