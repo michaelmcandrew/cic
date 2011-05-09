@@ -135,7 +135,6 @@ function cic_directory_search_form_submit($form, &$form_state) {
 
 
 function cic_directory_search() {
-	
 	drupal_set_title(DATABASE_SEARCH);
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
@@ -154,8 +153,11 @@ function cic_directory_search() {
 }
 
 function cic_directory_results() {
+	global $base_root;
+	cache_clear_all($base_root.'/directory/results', 'cache_page');
 	
 	drupal_set_title('Results');
+	
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
 	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
@@ -164,6 +166,9 @@ function cic_directory_results() {
 	civicrm_initialize(TRUE);
 	
 	//get form
+	
+	//drupal_flush_all_caches();
+  	//print_r($_POST);
 	$form = drupal_get_form('cic_directory_search_form');
 	
 	//build query
