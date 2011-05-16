@@ -1,7 +1,3 @@
-<script type="text/javascript"
-    src="http://maps.google.com/maps/api/js?sensor=true">
-</script>
-
 <div id='cross_container'>
 <div class='quarter qt ql' id='q1'>
 	<h3>Contact details</h3>

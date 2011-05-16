@@ -1,6 +1,6 @@
 <?php
 
-define(DATABASE_SEARCH, 'Database search');
+define(DATABASE_SEARCH, 'Church or project search');
 
 function cic_directory_menu() {
 	$items['directory'] = array(
@@ -63,17 +63,17 @@ function cic_directory_search_form() {
 		
 	$who_options[]=$where_options[]=$district_options[]=' - select - ';
 	
-	$result = db_query('SELECT `label` FROM {civicrm_option_value} WHERE option_group_id=63');
+	$result = db_query('SELECT `label` FROM {civicrm_option_value} WHERE option_group_id=63 ORDER BY `label`');
 	while ($data = db_fetch_object($result)){
 		$who_options[$data->label]=$data->label;
 	}
-	$result = db_query('SELECT DISTINCT `district_borough_council_3` FROM {civicrm_value_location_details_2}');
+	$result = db_query('SELECT DISTINCT `district_borough_council_3` FROM {civicrm_value_location_details_2} ORDER BY `district_borough_council_3`');
 	while ($data = db_fetch_object($result)){
 		if(trim($data->district_borough_council_3)){
 			$where_options[$data->district_borough_council_3]=$data->district_borough_council_3;
 		}
 	}
-	$result = db_query('SELECT id, name FROM {civicrm_membership_type}');
+	$result = db_query('SELECT id, name FROM {civicrm_membership_type} ORDER BY name');
 	while ($data = db_fetch_object($result)){
 		if(trim($data->name)!='-'){
 			$district_options[$data->id]=$data->name;
@@ -153,22 +153,19 @@ function cic_directory_search() {
 }
 
 function cic_directory_results() {
+	//clear the cache so that not logged in people don't get other people's search criteria.  necessary because of how we are using the session to populate the search form
 	global $base_root;
 	cache_clear_all($base_root.'/directory/results', 'cache_page');
 	
+	//set some page info
 	drupal_set_title('Results');
-	
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
 	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
 	drupal_set_breadcrumb($breadcrumb);
-	
 	civicrm_initialize(TRUE);
+	require_once 'CRM/Utils/Address.php';
 	
-	//get form
-	
-	//drupal_flush_all_caches();
-  	//print_r($_POST);
 	$form = drupal_get_form('cic_directory_search_form');
 	
 	//build query
@@ -205,37 +202,27 @@ function cic_directory_results() {
 	
  	$sql = "$select\n$from\n$where\n$order_by";
 	
-	
-	//print_r($sql); exit;
+	$pager_num = 1;
 	$limit = 20;
-	$result = pager_query(
-		$sql,
-		$limit,
-		NULL,
-		NULL,
-		$arg[0],
-		$arg[1],
-		$arg[2],
-		$arg[3]
-	);
-//	print_r($result);exit;
-	$header = array('name', 'address', 'who', 'where');
 	
-	require_once 'CRM/Utils/Address.php';
+	$result = pager_query($sql, $limit, $pager_num, NULL, $arg[0], $arg[1], $arg[2], $arg[3]);
+	$pager = theme('pager', NULL, $limit, $pager_num);
 	while ($data = db_fetch_object($result)) {
 		$address=CRM_Utils_Address::format((array)$data);
 		// make link on display name
 		$link = "<a href='/directory/view/{$data->contact_id}'>{$data->display_name}</a>";
 		$rows[] = array('name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))), 'where' => $data->where);
 	}
-	if(count($rows)){
-		$results = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
-	}
+	$header = array('name', 'address', 'who', 'where');
+	$results['table'] = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
+	$results['count'] = 1;count($rows);
+	return theme('cic_directory_search', $form, $results, $pager);//	exit;
 	
-
-
-	$pager = theme('pager', NULL, $limit, NULL);
-	return theme('cic_directory_search', $form, $results, $pager);
+	
+	
+	// 
+	// 
+	// 
 }
 
 function cic_directory_view($contact_id) {
