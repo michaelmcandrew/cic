@@ -2,6 +2,8 @@
 
 define(DATABASE_SEARCH, 'Church or project search');
 
+function cic_directory_init() {
+}
 function cic_directory_menu() {
 	$items['directory'] = array(
 		'page callback' => 'cic_directory_search',
@@ -83,7 +85,7 @@ function cic_directory_search_form() {
 	$form['#method'] = 'post';
 	$form['#action'] = '/directory/results';
 	$form['search']['name'] = array(
-		'#title' => 'Church name',
+		'#title' => 'Church or project name',
 		'#type' => 'textfield',
 		'#description' => 'Type a full or partial name',
 		'#autocomplete_path' => 'directory/autocomplete/church',  
@@ -155,7 +157,8 @@ function cic_directory_search() {
 function cic_directory_results() {
 	//clear the cache so that not logged in people don't get other people's search criteria.  necessary because of how we are using the session to populate the search form
 	global $base_root;
-	cache_clear_all($base_root.'/directory/results', 'cache_page');
+	cache_clear_all($base_root.'/directory/results%', 'cache_page', TRUE);
+	//cache_clear_all('*', 'cache_page', TRUE);
 	
 	//set some page info
 	drupal_set_title('Results');
@@ -169,7 +172,7 @@ function cic_directory_results() {
 	$form = drupal_get_form('cic_directory_search_form');
 	
 	//build query
-	$select_clauses[] = "SELECT ca.*, cc.id as contact_id, cc.display_name, cwho.who_do_they_serve_7 as who, cwhere.district_borough_council_3 as `where` ";
+	$select_clauses[] = "SELECT ca.*, contact_sub_type, cc.id as contact_id, cc.display_name, cwho.who_do_they_serve_7 as who, cwhere.district_borough_council_3 as `where`, ward_4 as ward ";
 	$from_clauses[] = "FROM `civicrm_contact` AS cc";
 	$from_clauses[] = "LEFT JOIN `civicrm_address` AS ca ON cc.id=ca.contact_id AND ca.is_primary";
 	$from_clauses[] = "LEFT JOIN `civicrm_value_who_do_they_serve_details_3` AS cwho ON cc.id=cwho.entity_id";
@@ -209,11 +212,12 @@ function cic_directory_results() {
 	$pager = theme('pager', NULL, $limit, $pager_num);
 	while ($data = db_fetch_object($result)) {
 		$address=CRM_Utils_Address::format((array)$data);
+		$icon = $data->contact_sub_type=='Church' ? '<img src="/sites/default/files/church icon.jpg">' : '<img src="/sites/default/files/project icon.jpg">';
 		// make link on display name
 		$link = "<a href='/directory/view/{$data->contact_id}'>{$data->display_name}</a>";
-		$rows[] = array('name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))), 'where' => $data->where);
+		$rows[] = array('type' => $icon, 'name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))), 'where' => $data->where.', '.$data->ward);
 	}
-	$header = array('name', 'address', 'who', 'where');
+	$header = array('type', 'name', 'address', 'who', 'where (LA, ward)');
 	$results['table'] = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
 	$results['count'] = 1;count($rows);
 	return theme('cic_directory_search', $form, $results, $pager);//	exit;
@@ -226,6 +230,9 @@ function cic_directory_results() {
 }
 
 function cic_directory_view($contact_id) {
+	// global $custom_theme;
+	// 	$custom_theme='garland';	
+	// 	
 	
 	//init CiviCRM
 	civicrm_initialize(TRUE);
