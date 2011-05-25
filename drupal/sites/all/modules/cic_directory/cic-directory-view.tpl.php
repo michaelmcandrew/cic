@@ -6,21 +6,21 @@
 	<?php print cic_directory_theme_var('Email', $church['email'], 'email'); ?>
 	<?php print cic_directory_theme_var('Website', $church['website'], 'url'); ?>
 	<?php print cic_directory_theme_var('Contact', $church['contact']); ?>
+	<?php print cic_directory_theme_var('County', $about['county']); ?>
+	<?php print cic_directory_theme_var('Council', $about['dbc']); ?>
+	<?php print cic_directory_theme_var('Ward', $about['ward']); ?>
 </div>
 
 <div class='quarter qt qr' id='q2'>
 	<h3>About</h3>
 	<?php print cic_directory_theme_var('Who we serve', $about['who']); ?>
-	<?php print cic_directory_theme_var('County', $about['county']); ?>
-	<?php print cic_directory_theme_var('Council', $about['dbc']); ?>
-	<?php print cic_directory_theme_var('Ward', $about['ward']); ?>
 	<?php print cic_directory_theme_var('Circuit', $about['circuit']); ?>
 	<?php print cic_directory_theme_var('District', $about['district']); ?>	
 </div>
 
 <div class='quarter qb ql' id='q3'>
 	<h3>Maps and links</h3>
-	<?php print cic_directory_theme_var('View on Google maps', $links['map'], 'url', array('type'=>'image','file'=>'globe.png')); ?>	
+	<?php print cic_directory_theme_var('Google map', $links['map'], 'url', array('type'=>'image','file'=>'globe.png')); ?>	
 	<?php print cic_directory_theme_var('Stats for mission', $links['stats'], 'url', array('type'=>'image','file'=>'s4m.png')); ?>	
 	<?php print cic_directory_theme_var('ONS statistics', $links['ons'], 'url', array('type'=>'image','file'=>'stats.png')); ?>	
 	</div>

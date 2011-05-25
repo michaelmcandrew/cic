@@ -2,8 +2,6 @@
 
 define(DATABASE_SEARCH, 'Church or project search');
 
-function cic_directory_init() {
-}
 function cic_directory_menu() {
 	$items['directory'] = array(
 		'page callback' => 'cic_directory_search',
@@ -62,8 +60,11 @@ function cic_directory_theme() {
 
 
 function cic_directory_search_form() {
-		
-	$who_options[]=$where_options[]=$district_options[]=' - select - ';
+	
+	drupal_add_js(drupal_get_path('module', 'cic_directory') . '/cic-directory-district.js');
+	
+	
+	$who_options[]=$where_options[]=' - select - ';
 	
 	$result = db_query('SELECT `label` FROM {civicrm_option_value} WHERE option_group_id=63 ORDER BY `label`');
 	while ($data = db_fetch_object($result)){
@@ -78,9 +79,14 @@ function cic_directory_search_form() {
 	$result = db_query('SELECT id, name FROM {civicrm_membership_type} ORDER BY name');
 	while ($data = db_fetch_object($result)){
 		if(trim($data->name)!='-'){
-			$district_options[$data->id]=$data->name;
+			$districts[cic_directory_get_district($data->name)]['']=' - select - ';
+			$districts[cic_directory_get_district($data->name)][$data->id]=$data->name;
 		}
 	}
+	$district_options = $districts[''];
+	unset($districts['']);
+	ksort($districts);
+//	print_r($districts);exit;
 	$form['search']['#type']='fieldset';
 	$form['#method'] = 'post';
 	$form['#action'] = '/directory/results';
@@ -92,12 +98,26 @@ function cic_directory_search_form() {
 		'#default_value' => $_SESSION['cic_directory']['name']
 	);
 	$form['search']['district'] = array(
-		'#title' => 'Circuit/District',
+		'#title' => 'District',
 		'#type' => 'select',
 		'#options' => $district_options,		
-		'#description' => 'What Circuit or District is the Church or Project in?',
+		'#description' => 'What District is the Church or Project in?',
 		'#default_value' => $_SESSION['cic_directory']['district']
 	);
+	foreach($districts as $district_name => $circuits){
+		$key++;
+		// $key=strtolower($district_name);
+		// $key=str_replace(array('&','(',')'), '', $key);
+		
+		$form['search']['circuit-'.$key] = array(
+			'#title' => 'Circuits in '.$district_name,
+			'#type' => 'select',
+			'#options' => $circuits,		
+			'#description' => 'You can choose a Circuit to further narrow your search',
+			'#default_value' => $_SESSION['cic_directory']['circuit-'.$key]
+		);
+		
+	}
 	$form['search']['who'] = array(
 		'#title' => 'Whom we serve',
 		'#type' => 'select',
@@ -172,7 +192,7 @@ function cic_directory_results() {
 	$form = drupal_get_form('cic_directory_search_form');
 	
 	//build query
-	$select_clauses[] = "SELECT ca.*, contact_sub_type, cc.id as contact_id, cc.display_name, cwho.who_do_they_serve_7 as who, cwhere.district_borough_council_3 as `where`, ward_4 as ward ";
+	$select_clauses[] = "SELECT ca.*, contact_sub_type, cc.id as contact_id, cc.display_name, cwho.who_do_we_serve__new_12 as who, cwhere.district_borough_council_3 as `where`, ward_4 as ward ";
 	$from_clauses[] = "FROM `civicrm_contact` AS cc";
 	$from_clauses[] = "LEFT JOIN `civicrm_address` AS ca ON cc.id=ca.contact_id AND ca.is_primary";
 	$from_clauses[] = "LEFT JOIN `civicrm_value_who_do_they_serve_details_3` AS cwho ON cc.id=cwho.entity_id";
@@ -185,10 +205,6 @@ function cic_directory_results() {
 		$where_clauses[] = 'AND cc.display_name LIKE "%%%s%%"';
 		$arg[]=$_SESSION['cic_directory']['name'];
 	}
-	if(isset($_SESSION['cic_directory']['district']) && $_SESSION['cic_directory']['district']!=0){
-		$where_clauses[] = "AND cmem.membership_type_id = %d";
-		$arg[]=$_SESSION['cic_directory']['district'];
-	}
 	if(isset($_SESSION['cic_directory']['who']) && $_SESSION['cic_directory']['who']!='0'){
 		$where_clauses[] = 'AND cwho.who_do_they_serve_7 LIKE "%%%s%%"';
 		$arg[]=$_SESSION['cic_directory']['who'];
@@ -198,17 +214,40 @@ function cic_directory_results() {
 		$arg[]=$_SESSION['cic_directory']['where'];
 	}
 	
+	if(isset($_SESSION['cic_directory']['district']) && $_SESSION['cic_directory']['district']!=0){
+		
+		
+		$result = db_query('SELECT id, name FROM {civicrm_membership_type} ORDER BY name');
+		while ($data = db_fetch_object($result)){
+			if(trim($data->name)!='-'){
+				$districts[cic_directory_get_district_id($data->name)][$data->id]=$data->name;
+			}
+		}
+		$anotherTranslation=array(93=>1, 94=>2,95=>3,96=>4,97=>5,98=>6,99=>7);
+		if($_SESSION['cic_directory']['circuit-'.$anotherTranslation[$_SESSION['cic_directory']['district']]]==''){
+			$where_clauses[]=' AND ( 0';
+			foreach(array_keys($districts[$_SESSION['cic_directory']['district']]) as $boot){
+				$where_clauses[] = " OR cmem.membership_type_id = $boot ";
+			}
+			$where_clauses[]=' ) ';
+		}else{
+			$where_clauses[] = 'AND cmem.membership_type_id = "%d"';
+			$arg[]=$_SESSION['cic_directory']['circuit-'.$anotherTranslation[$_SESSION['cic_directory']['district']]];
+		}
+	}
+	
+	
 	$select=implode("\n", $select_clauses);
 	$from=implode("\n", $from_clauses);
 	$where=implode("\n", $where_clauses);
 	$order_by=implode("\n", $order_by_clauses);
 	
- 	$sql = "$select\n$from\n$where\n$order_by";
-	
+	$sql = "$select\n$from\n$where\n$order_by";
+	// 	print_r($arg);// exit;
 	$pager_num = 1;
 	$limit = 20;
 	
-	$result = pager_query($sql, $limit, $pager_num, NULL, $arg[0], $arg[1], $arg[2], $arg[3]);
+	$result = pager_query($sql, $limit, $pager_num, NULL, $arg[0], $arg[1], $arg[2], $arg[3], $arg[4], $arg[5], $arg[6], $arg[7], $arg[8], $arg[9]);
 	$pager = theme('pager', NULL, $limit, $pager_num);
 	while ($data = db_fetch_object($result)) {
 		$address=CRM_Utils_Address::format((array)$data);
@@ -219,7 +258,7 @@ function cic_directory_results() {
 	}
 	$header = array('type', 'name', 'address', 'who', 'where (LA, ward)');
 	$results['table'] = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
-	$results['count'] = 1;count($rows);
+	$results['count'] = count($rows);
 	return theme('cic_directory_search', $form, $results, $pager);//	exit;
 	
 	
@@ -311,6 +350,7 @@ WHERE org.id=%d',$contact_id));
 	$about['ward']=$church_custom_data['custom_4'];
 	$about['circuit']=db_result(db_query('SELECT name FROM civicrm_membership AS cmem JOIN civicrm_membership_type AS cmemtype ON cmem.membership_type_id=cmemtype.id AND cmem.contact_id=%d',$contact_id));
 	$about['district']=cic_directory_get_district($about['circuit']);
+	
 	
 	//links
 	$links['map']="http://maps.google.co.uk/maps?q={$church['display_name']}@{$church['geo_code_1']},{$church['geo_code_2']}";
@@ -440,6 +480,104 @@ function cic_directory_get_district($circuit){
 	);
 	return $translation[$circuit];
 }
+
+function cic_directory_get_district_id($circuit){
+	$translation=array(
+		"Altrincham (19/8)" => 99,
+		"Ashton-under-Lyne (19/23)" => 99,
+		"Bramhall (19/15)" => 99,
+		"Buxton (19/18)" => 99,
+		"Glossop (19/21)" => 99,
+		"Hazel Grove and Poynton (19/14)" => 99,
+		"High Peak (19/20)" => 99,
+		"Hyde and Denton (19/22)" => 99,
+		"Macclesfield (19/24)" => 99,
+		"Manchester (19/1)" => 99,
+		"Oldham and Saddleworth (19/11)" => 99,
+		"Romiley (19/16)" => 99,
+		"Sale (19/9)" => 99,
+		"Salford (19/3)" => 99,
+		"Shaw and Royton (19/12)" => 99,
+		"Stockport (19/13)" => 99,
+		"Stretford and Urmston (19/7)" => 99,
+		"Whaley Bridge Uniting Partnership (19/17)" => 99,
+		"Wythenshawe (19/25)" => 99,
+		"Alderley Edge and Knutsford (19/19)" => 99,
+		"Bolton (6/1)" => 93,
+		"Victoria Hall (6/2)" => 93,
+		"Farnworth and Worsley (6/3)" => 93,
+		"Rochdale and Littleborough (6/4)" => 93,
+		"Wigan (6/5)" => 93,
+		"Leigh and Hindley (6/7)" => 93,
+		"Bury and Heywood (6/8)" => 93,
+		"Prestwich and Radcliffe (6/9)" => 93,
+		"Rossendale (6/14)" => 93,
+		"Carlisle (9/1)" => 95,
+		"Brampton (9/2)" => 95,
+		"Alston (9/3)" => 95,
+		"Whitehaven (9/4)" => 95,
+		"Solway (9/5)" => 95,
+		"Keswick and Cockermouth (9/6)" => 95,
+		"Kirkby Stephen, Appleby and Tebay (9/7)" => 95,
+		"Sedbergh (9/8)" => 95,
+		"Penrith (9/9)" => 95,
+		"Kirkoswald (9/10)" => 95,
+		"Wigton (9/12)" => 95,
+		"Kendal (9/13)" => 95,
+		"Ambleside and Windermere (9/14)" => 95,
+		"Ulverston (9/15)" => 95,
+		"South West Cumbria (9/16)" => 95,
+		"Chester (11/1)" => 94,
+		"Runcorn (11/2)" => 94,
+		"Delamere Forest (11/3)" => 94,
+		"Northwich and Winsford (11/4)" => 94,
+		"Middlewich (11/5)" => 94,
+		"Cheshire South (11/8)" => 94,
+		"Mow Cop, Biddulph and Congleton (11/9)" => 94,
+		"Market Drayton (11/14)" => 94,
+		"Stoke-on-Trent North (11/15)" => 94,
+		"Kidsgrove (11/16)" => 94,
+		"Stoke-on-Trent (Burslem Mission) (11/18)" => 94,
+		"Stoke-on-Trent (South) (11/20)" => 94,
+		"Wolstanton and Audley (11/22)" => 94,
+		"Newcastle (Staffs) (11/23)" => 94,
+		"Leek (11/24)" => 94,
+		"Cheadle (11/25)" => 94,
+		"Isle of Man (15/1)" => 96,
+		"Liverpool (North) (18/1)" => 98,
+		"Liverpool (North Central) (18/3)" => 98,
+		"Liverpool (City Centre Ministry) (18/4)" => 98,
+		"Liverpool (South) (18/5)" => 98,
+		"Liverpool (Linacre Mission) (18/7)" => 98,
+		"Crosby (18/8)" => 98,
+		"Wirral (18/9)" => 98,
+		"St. Helens and Prescot (18/13)" => 98,
+		"Makerfield (18/14)" => 98,
+		"Warrington (18/15)" => 98,
+		"Widnes (18/16)" => 98,
+		"Southport (18/17)" => 98,
+		"Southport (Banks and Hesketh Bank) (18/18)" => 98,
+		"Ormskirk (18/19)" => 98,
+		"Skelmersdale (18/20)" => 98,
+		"Burnley (21/1)" => 97,
+		"Blackburn (21/2)" => 97,
+		"Great Harwood (21/3)" => 97,
+		"Darwen (21/4)" => 97,
+		"Accrington and Haslingden (21/5)" => 97,
+		"Pendle (21/6)" => 97,
+		"Clitheroe (21/9)" => 97,
+		"Chorley and Leyland (21/10)" => 97,
+		"Preston Ribble (21/11)" => 97,
+		"Blackpool (21/12)" => 97,
+		"South Fylde (21/14)" => 97,
+		"North Fylde (21/15)" => 97,
+		"Garstang (21/16)" => 97,
+		"Lancaster (21/17)" => 97,
+		"Morecambe and Heysham (21/18)" => 97,
+	);
+	return $translation[$circuit];
+}
+
 
 function cic_directory_theme_var($label, $value, $style = 'sl', $extra=NULL){
 	if($value==''){

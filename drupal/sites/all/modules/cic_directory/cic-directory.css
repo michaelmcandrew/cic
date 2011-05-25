@@ -1,26 +1,28 @@
 div#cross_container{
 	width:644px;
 	display:table;
-	font-size:85%;
+	margin-top:-50px;
+	margin-left:auto;
+	margin-right:auto;
 	
 }
 
 div.quarter {
 	margin:12px;
-	width:180px;
+	width:190px;
 	height: 180px;
 	float: left;
 	color:white;
 }
 
 div.ql {
-	padding-left: 90px;
+	padding-left: 80px;
 	padding-right: 20px;
 	text-align: right;
 }
 div.qr {
 	padding-left: 20px;
-	padding-right: 90px;
+	padding-right: 80px;
 }
 div.qt {
 	padding-top: 60px;
@@ -43,7 +45,7 @@ div.quarter p {
 div.quarter h3{
 	color:yellow;
 	font-size:130%;
-	padding-bottom:0.7em;
+	padding-bottom:0em;
 }
 
 .data .label {
@@ -72,6 +74,10 @@ div.quarter h3{
 div#cross_footer{
 	clear:both;
 	
+}
+
+#q3 p {
+	margin-bottom:5px;
 }
 
 #q1 {

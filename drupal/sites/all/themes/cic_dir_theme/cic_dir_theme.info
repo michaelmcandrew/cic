@@ -1,0 +1,8 @@
+name = CIC directory theme
+description = Written for CIC directory
+core = 6.x
+engine = phptemplate
+stylesheets[all][] = style.css
+regions[footer] = Footer
+
+

@@ -7,7 +7,7 @@
 
 <?php if(isset($results)): ?>
 	<?php echo $form; ?>
-	<?php if($results['count']): ?>
+	<?php if($results['count']>0): ?>
 		
 		<div id='results'>
 		<p>The following Churches match your query:</p>
