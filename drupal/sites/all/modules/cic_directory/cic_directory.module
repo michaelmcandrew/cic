@@ -70,6 +70,10 @@ function cic_directory_search_form() {
 	while ($data = db_fetch_object($result)){
 		$who_options[$data->label]=$data->label;
 	}
+	$result = db_query('SELECT `label` FROM {civicrm_option_value} WHERE option_group_id=64 ORDER BY `label`');
+	while ($data = db_fetch_object($result)){
+		$what_options[$data->label]=$data->label;
+	}
 	$result = db_query('SELECT DISTINCT `district_borough_council_3` FROM {civicrm_value_location_details_2} ORDER BY `district_borough_council_3`');
 	while ($data = db_fetch_object($result)){
 		if(trim($data->district_borough_council_3)){
@@ -124,6 +128,13 @@ function cic_directory_search_form() {
 		'#options' => $who_options,		
 		'#description' => 'Whom do they work with?',
 		'#default_value' => $_SESSION['cic_directory']['who']
+	);
+	$form['search']['what'] = array(
+		'#title' => 'What we do',
+		'#type' => 'select',
+		'#options' => $what_options,		
+		'#description' => 'What do they do?',
+		'#default_value' => $_SESSION['cic_directory']['what']
 	);
 	$form['search']['where'] = array(
 		'#title' => 'Where',
@@ -192,7 +203,7 @@ function cic_directory_results() {
 	$form = drupal_get_form('cic_directory_search_form');
 	
 	//build query
-	$select_clauses[] = "SELECT ca.*, contact_sub_type, cc.id as contact_id, cc.display_name, cwho.who_do_we_serve__new_12 as who, cwhere.district_borough_council_3 as `where`, ward_4 as ward ";
+	$select_clauses[] = "SELECT ca.*, contact_sub_type, cc.id as contact_id, cc.display_name, cwho.who_do_we_serve__new_12 as who, cwhere.district_borough_council_3 as `where`, what_do_we_do_13 as `what`, ward_4 as ward ";
 	$from_clauses[] = "FROM `civicrm_contact` AS cc";
 	$from_clauses[] = "LEFT JOIN `civicrm_address` AS ca ON cc.id=ca.contact_id AND ca.is_primary";
 	$from_clauses[] = "LEFT JOIN `civicrm_value_who_do_they_serve_details_3` AS cwho ON cc.id=cwho.entity_id";
@@ -208,6 +219,10 @@ function cic_directory_results() {
 	if(isset($_SESSION['cic_directory']['who']) && $_SESSION['cic_directory']['who']!='0'){
 		$where_clauses[] = 'AND cwho.who_do_they_serve_7 LIKE "%%%s%%"';
 		$arg[]=$_SESSION['cic_directory']['who'];
+	}
+	if(isset($_SESSION['cic_directory']['what']) && $_SESSION['cic_directory']['what']!='0'){
+		$where_clauses[] = 'AND cwho.what_do_we_do_13 LIKE "%%%s%%"';
+		$arg[]=$_SESSION['cic_directory']['what'];
 	}
 	if(isset($_SESSION['cic_directory']['where']) && $_SESSION['cic_directory']['where']!=='0'){
 		$where_clauses[] = 'AND cwhere.district_borough_council_3 LIKE "%%%s%%"';
@@ -254,9 +269,9 @@ function cic_directory_results() {
 		$icon = $data->contact_sub_type=='Church' ? '<img src="/sites/default/files/church icon.jpg">' : '<img src="/sites/default/files/project icon.jpg">';
 		// make link on display name
 		$link = "<a href='/directory/view/{$data->contact_id}'>{$data->display_name}</a>";
-		$rows[] = array('type' => $icon, 'name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))), 'where' => $data->where.', '.$data->ward);
+		$rows[] = array('type' => $icon, 'name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))),'what' => implode(', ', explode(chr(1), substr($data->what,1,-1))), 'where' => $data->where.', '.$data->ward);
 	}
-	$header = array('type', 'name', 'address', 'who', 'where (LA, ward)');
+	$header = array('type', 'name', 'address', 'who', 'what', 'where (LA, ward)');
 	$results['table'] = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
 	$results['count'] = count($rows);
 	return theme('cic_directory_search', $form, $results, $pager);//	exit;
@@ -308,7 +323,9 @@ function cic_directory_view($contact_id) {
 		'return.custom_8' => 1,
 		'return.custom_9' => 1,
 		'return.custom_10' => 1,
-		'return.custom_11' => 1				
+		'return.custom_11' => 1,				
+		'return.custom_12' => 1,				
+		'return.custom_13' => 1				
 	);
 
 	$contact_result = civicrm_contact_get($params);
@@ -344,7 +361,8 @@ WHERE org.id=%d',$contact_id));
 	
 	//about
 		
-	$about['who']=implode(', ', explode(chr(1), substr($church_custom_data['custom_7'],1,-1)));
+	$about['who']=implode(', ', explode(chr(1), substr($church_custom_data['custom_12'],1,-1)));
+	$about['what']=implode(', ', explode(chr(1), substr($church_custom_data['custom_13'],1,-1)));
 	$about['county']=$church_custom_data['custom_2'];	
 	$about['dbc']=$church_custom_data['custom_3'];
 	$about['ward']=$church_custom_data['custom_4'];

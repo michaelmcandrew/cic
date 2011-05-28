@@ -9,13 +9,14 @@
 	<?php print cic_directory_theme_var('County', $about['county']); ?>
 	<?php print cic_directory_theme_var('Council', $about['dbc']); ?>
 	<?php print cic_directory_theme_var('Ward', $about['ward']); ?>
+	<?php print cic_directory_theme_var('Circuit', $about['circuit']); ?>
+	<?php print cic_directory_theme_var('District', $about['district']); ?>	
 </div>
 
 <div class='quarter qt qr' id='q2'>
 	<h3>About</h3>
 	<?php print cic_directory_theme_var('Who we serve', $about['who']); ?>
-	<?php print cic_directory_theme_var('Circuit', $about['circuit']); ?>
-	<?php print cic_directory_theme_var('District', $about['district']); ?>	
+	<?php print cic_directory_theme_var('What we do', $about['what']); ?>
 </div>
 
 <div class='quarter qb ql' id='q3'>
