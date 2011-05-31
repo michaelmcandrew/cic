@@ -64,7 +64,7 @@ function cic_directory_search_form() {
 	drupal_add_js(drupal_get_path('module', 'cic_directory') . '/cic-directory-district.js');
 	
 	
-	$who_options[]=$where_options[]=' - select - ';
+	$who_options[]=$what_options[]=$where_options[]=' - select - ';
 	
 	$result = db_query('SELECT `label` FROM {civicrm_option_value} WHERE option_group_id=63 ORDER BY `label`');
 	while ($data = db_fetch_object($result)){
@@ -258,7 +258,7 @@ function cic_directory_results() {
 	$order_by=implode("\n", $order_by_clauses);
 	
 	$sql = "$select\n$from\n$where\n$order_by";
-	// 	print_r($arg);// exit;
+	print_r($sql);print_r($arg);// exit;
 	$pager_num = 1;
 	$limit = 20;
 	
