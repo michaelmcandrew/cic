@@ -14,14 +14,28 @@ $(document).ready(function(){
 	};
 
 	var map = new google.maps.Map(document.getElementById("map_canvas"), options);
+	
+	var infoWindows = [];
 
+	function clearOverlays() {
+    if (infoWindows) {
+      for (i in infoWindows) {
+        infoWindows[i].setMap(null);
+      }
+    }
+  }
 <?php
 	//need to repeat for each Church or project
 	foreach($churches as $church){
 	echo "	var church{$church['id']}LatLong = new google.maps.LatLng({$church['lat']},{$church['long']});\n\n";
 	echo "	bounds.extend (church{$church['id']}LatLong);\n\n";
-    
-
+	echo "	var church{$church['id']}infowindow = new google.maps.InfoWindow({
+        content: '<div >'+
+	        '<p><img src=\"/sites/default/files/church%20icon.jpg\" alt=\"Church\"/> <a href=\"/directory/view/{$church['id']}\"><b>{$church['name']}</b></a></p>'+
+	        '<p>{$church['address']}</p>'+
+	        '</div>'
+    });\n\n";
+	echo "	infoWindows.push(church{$church['id']}infowindow);\n\n";
 
 	echo "	var church{$church['id']}Marker = new google.maps.Marker({
 		position: church{$church['id']}LatLong,
@@ -30,14 +44,9 @@ $(document).ready(function(){
 	});\n\n";
 
 	echo "	google.maps.event.addListener(church{$church['id']}Marker, 'click', function() {
-		var churchinfowindow = new google.maps.InfoWindow({
-	        content: '<div >'+
-		        '<p><img src=\"/sites/default/files/church%20icon.jpg\" alt=\"Church\"/> <a href=\"/directory/view/{$church['id']}\"><b>{$church['name']}</b></a></p>'+
-		        '<p>{$church['address']}</p>'+
-		        '</div>'
-	    });
-      churchinfowindow.open(map,church{$church['id']}Marker);
-    });\n";
+		clearOverlays();
+		church{$church['id']}infowindow.open(map,church{$church['id']}Marker);
+    });\n\n";
 	//end of PHP foreach loop
 	}
 	?>
