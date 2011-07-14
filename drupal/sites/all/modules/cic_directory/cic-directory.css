@@ -62,14 +62,8 @@ div.quarter h3{
 	text-decoration: underline;
 }
 
-.quarter #map_container {
-	margin-left:30px;
-	margin-bottom:15px;
-}
-
-.quarter #map_canvas {
-	width:100%;
-	height:150px;
+#map_canvas {
+	height:600px;
 }
 
 div#cross_footer{

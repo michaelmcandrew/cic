@@ -29,6 +29,11 @@ function cic_directory_menu() {
 		'access callback' => TRUE,
 		'type' => MENU_CALLBACK
 	);
+	$items['directory/results/map'] = array(
+		'page callback' => 'cic_directory_results_map',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK
+	);
 	return $items;
 }
 
@@ -49,6 +54,10 @@ function cic_directory_theme() {
 		'cic_directory_view' => array(
 			'arguments' => array('church' => NULL,'address_block' => NULL, 'about' => NULL, 'links' => NULL, 'docs' => NULL),
 			'template' => 'cic-directory-view',
+	),
+		'cic_directory_map' => array(
+			'arguments' => array('churches' => NULL),
+			'template' => 'cic-directory-map',
 	),
 		'cic_directory_search' => array(
 			'arguments' => array('form' => NULL,'results' => NULL, 'pager' => NULL),
@@ -105,7 +114,7 @@ function cic_directory_search_form() {
 		'#title' => 'District',
 		'#type' => 'select',
 		'#options' => $district_options,		
-		'#description' => 'What District is the Church or Project in?',
+		'#description' => 'What district is the church or project in?',
 		'#default_value' => $_SESSION['cic_directory']['district']
 	);
 	foreach($districts as $district_name => $circuits){
@@ -185,24 +194,8 @@ function cic_directory_search() {
 	
 }
 
-function cic_directory_results() {
-	//clear the cache so that not logged in people don't get other people's search criteria.  necessary because of how we are using the session to populate the search form
-	global $base_root;
-	cache_clear_all($base_root.'/directory/results%', 'cache_page', TRUE);
-	//cache_clear_all('*', 'cache_page', TRUE);
-	
-	//set some page info
-	drupal_set_title('Results');
-	$breadcrumb = array();
-	$breadcrumb[] = l('Home', '<front>');
-	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
-	drupal_set_breadcrumb($breadcrumb);
-	civicrm_initialize(TRUE);
-	require_once 'CRM/Utils/Address.php';
-	
-	$form = drupal_get_form('cic_directory_search_form');
-	
-	//build query
+function _cic_directory_build_query() {
+	// this function returns the SQL and the args of the query
 	$select_clauses[] = "SELECT ca.*, contact_sub_type, cc.id as contact_id, cc.display_name, cwho.who_do_we_serve__new_12 as who, cwhere.district_borough_council_3 as `where`, what_do_we_do_13 as `what`, ward_4 as ward ";
 	$from_clauses[] = "FROM `civicrm_contact` AS cc";
 	$from_clauses[] = "LEFT JOIN `civicrm_address` AS ca ON cc.id=ca.contact_id AND ca.is_primary";
@@ -257,24 +250,51 @@ function cic_directory_results() {
 	$where=implode("\n", $where_clauses);
 	$order_by=implode("\n", $order_by_clauses);
 	
-	$sql = "$select\n$from\n$where\n$order_by";
-	// print_r($sql);print_r($arg);
-	// exit;
+	return array('sql'=>"$select\n$from\n$where\n$order_by", 'arg'=>$arg); 
+	
+}
+
+
+
+
+
+function cic_directory_results() {
+	//clear the cache so that not logged in people don't get other people's search criteria.  necessary because of how we are using the session to populate the search form
+	global $base_root;
+	cache_clear_all($base_root.'/directory/results%', 'cache_page', TRUE);
+	//cache_clear_all('*', 'cache_page', TRUE);
+	
+	//set some page info
+	drupal_set_title('Results');
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
+	drupal_set_breadcrumb($breadcrumb);
+	civicrm_initialize(TRUE);
+	require_once 'CRM/Utils/Address.php';
+	
+	$form = drupal_get_form('cic_directory_search_form');
+	
+	$build_query = _cic_directory_build_query();
+	$sql = $build_query['sql'];
+	$arg = $build_query['arg'];
+//	print_r($sql);print_r($arg);
+//	exit;
 	$pager_num = 1;
 	$limit = 20;
-	
+	$result = db_query($sql, $arg[0], $arg[1], $arg[2], $arg[3], $arg[4], $arg[5], $arg[6], $arg[7], $arg[8], $arg[9]);
+	$results['count']=mysql_num_rows($result);
 	$result = pager_query($sql, $limit, $pager_num, NULL, $arg[0], $arg[1], $arg[2], $arg[3], $arg[4], $arg[5], $arg[6], $arg[7], $arg[8], $arg[9]);
 	$pager = theme('pager', NULL, $limit, $pager_num);
 	while ($data = db_fetch_object($result)) {
 		$address=CRM_Utils_Address::format((array)$data);
-		$icon = $data->contact_sub_type=='Church' ? '<img src="/sites/default/files/church icon.jpg">' : '<img src="/sites/default/files/project icon.jpg">';
+		$icon = $data->contact_sub_type=='Church' ? '<img src="/sites/default/files/church%20icon.jpg">' : '<img src="/sites/default/files/project%20icon.jpg">';
 		// make link on display name
 		$link = "<a href='/directory/view/{$data->contact_id}'>{$data->display_name}</a>";
 		$rows[] = array('type' => $icon, 'name' => $link, 'address' => $address, 'who' => implode(', ', explode(chr(1), substr($data->who,1,-1))),'what' => implode(', ', explode(chr(1), substr($data->what,1,-1))), 'where' => $data->where.', '.$data->ward);
 	}
 	$header = array('type', 'name', 'address', 'who', 'what', 'where (LA, ward)');
 	$results['table'] = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
-	$results['count'] = count($rows);
 	return theme('cic_directory_search', $form, $results, $pager);//	exit;
 	
 	
@@ -284,6 +304,53 @@ function cic_directory_results() {
 	// 
 }
 
+
+function cic_directory_results_map() {
+	drupal_set_title('Mapped Results');
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
+	$breadcrumb[] = l('Results'	, 'directory/results');
+	drupal_set_breadcrumb($breadcrumb);
+	civicrm_initialize(TRUE);
+	require_once 'CRM/Utils/Address.php';
+
+	drupal_add_css(drupal_get_path('module', 'cic_directory') . '/cic-directory.css');	
+	
+	//get all the results
+	$build_query = _cic_directory_build_query();
+	$sql = $build_query['sql'];
+	$arg = $build_query['arg'];
+	$result = db_query($sql, $arg[0], $arg[1], $arg[2], $arg[3], $arg[4], $arg[5], $arg[6], $arg[7], $arg[8], $arg[9]);
+
+
+	//put them in a format that suitable to be sent to a google map
+	while ($data = db_fetch_object($result)) {
+		if(strlen($data->geo_code_1) AND strlen($data->geo_code_2)){
+
+			$address=CRM_Utils_Address::format((array)$data);
+			$address=explode("\n",trim($address));
+			$address=implode(", ",$address);
+			$icon = $data->contact_sub_type=='Church' ? 'church%20icon.jpg' : 'project%20icon.jpg';
+
+			$churches[$data->contact_id]=array(
+				'name'=>addslashes($data->display_name),
+				'address'=>addslashes($address),
+				'lat'=>$data->geo_code_1,
+				'long'=>$data->geo_code_2,
+				'link'=>'/directory/view/'.$data->contact_id,
+				'id'=>$data->contact_id,
+				'icon'=>$icon
+			);
+		}
+	}
+	
+	return theme('cic_directory_map', $churches);
+	
+	
+	
+	//display them on a google map, probably by creating a google map template and calling that template with the theme function
+}
 function cic_directory_view($contact_id) {
 	// global $custom_theme;
 	// 	$custom_theme='garland';	
@@ -299,7 +366,6 @@ function cic_directory_view($contact_id) {
 	
 	//ACL check whether this Church is allowed to be viewed
 	
-	// Build Breadcrumbs
 	drupal_add_css(drupal_get_path('module', 'cic_directory') . '/cic-directory.css');	
 	//get the contact
 	require_once('api/v2/Contact.php');
@@ -337,6 +403,7 @@ function cic_directory_view($contact_id) {
 	//set page title
 	drupal_set_title($church['display_name']);
 	
+	// Build Breadcrumbs
 	$breadcrumb = array();
 	$breadcrumb[] = l('Home', '<front>');
 	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');

@@ -10,7 +10,7 @@
 	<?php if($results['count']>0): ?>
 		
 		<div id='results'>
-		<p>The following Churches match your query:</p>
+		<p>The following <?php echo $results['count']; ?> churches and projects match your query. <a href="/directory/results/map">View these churches and projects on a map</a>.</p>
 
 		<div id='table'>
 			<?php echo $results['table']; ?>
