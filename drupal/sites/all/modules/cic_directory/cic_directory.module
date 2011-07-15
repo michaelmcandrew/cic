@@ -355,6 +355,17 @@ function cic_directory_view($contact_id) {
 	// global $custom_theme;
 	// 	$custom_theme='garland';	
 	// 	
+	//set page title
+	drupal_set_title($church['display_name']);
+	
+	// Build Breadcrumbs
+	$breadcrumb = array();
+	$breadcrumb[] = l('Home', '<front>');
+	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
+	$breadcrumb[] = l('Results'	, 'directory/results');
+
+	// Set Breadcrumbs
+	drupal_set_breadcrumb($breadcrumb);
 	
 	//init CiviCRM
 	civicrm_initialize(TRUE);
@@ -363,9 +374,7 @@ function cic_directory_view($contact_id) {
 	if(!$count){
 		drupal_goto('/directory/search');
 	};
-	
-	//ACL check whether this Church is allowed to be viewed
-	
+		
 	drupal_add_css(drupal_get_path('module', 'cic_directory') . '/cic-directory.css');	
 	//get the contact
 	require_once('api/v2/Contact.php');
@@ -392,25 +401,19 @@ function cic_directory_view($contact_id) {
 		'return.custom_10' => 1,
 		'return.custom_11' => 1,				
 		'return.custom_12' => 1,				
-		'return.custom_13' => 1				
+		'return.custom_13' => 1,			
+		'return.custom_14' => 1				
 	);
+	
 
 	$contact_result = civicrm_contact_get($params);
 	
 	//basic church info
 	$church_custom_data = $contact_result[$contact_id];
 	
-	//set page title
-	drupal_set_title($church['display_name']);
-	
-	// Build Breadcrumbs
-	$breadcrumb = array();
-	$breadcrumb[] = l('Home', '<front>');
-	$breadcrumb[] = l(DATABASE_SEARCH, 'directory/search');
-	$breadcrumb[] = l('Results'	, 'directory/results');
-
-	// Set Breadcrumbs
-	drupal_set_breadcrumb($breadcrumb);
+	if($church_custom_data['custom_14']){
+		unset($church['email']);		
+	}
 	
 	
 	//contact
@@ -424,7 +427,7 @@ function cic_directory_view($contact_id) {
 FROM civicrm_contact AS ind
 JOIN civicrm_relationship AS rel ON rel.contact_id_a=ind.id AND rel.relationship_type_id=12
 JOIN civicrm_contact AS org ON rel.contact_id_b=org.id
-WHERE org.id=%d',$contact_id));
+WHERE org.id=%d AND !ind.is_deleted',$contact_id));
 	
 	
 	//about
