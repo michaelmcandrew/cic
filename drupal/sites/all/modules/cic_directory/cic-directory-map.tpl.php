@@ -31,7 +31,7 @@ $(document).ready(function(){
 	echo "	bounds.extend (church{$church['id']}LatLong);\n\n";
 	echo "	var church{$church['id']}infowindow = new google.maps.InfoWindow({
         content: '<div >'+
-	        '<p><img src=\"/sites/default/files/church%20icon.jpg\" alt=\"Church\"/> <a href=\"/directory/view/{$church['id']}\"><b>{$church['name']}</b></a></p>'+
+	        '<p><img src=\"/sites/default/files/{$church['icon']}\" alt=\"Church\"/> <a href=\"/directory/view/{$church['id']}\"><b>{$church['name']}</b></a></p>'+
 	        '<p>{$church['address']}</p>'+
 	        '</div>'
     });\n\n";
@@ -40,6 +40,7 @@ $(document).ready(function(){
 	echo "	var church{$church['id']}Marker = new google.maps.Marker({
 		position: church{$church['id']}LatLong,
 		map: map,
+		icon: '/sites/default/files/{$church['icon']}',
 		title: '{$church['name']}'
 	});\n\n";
 

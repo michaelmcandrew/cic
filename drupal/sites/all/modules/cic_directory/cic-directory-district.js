@@ -1,8 +1,4 @@
 
-
-
-//When you load the page, hide the form elements
-
 $(document).ready(function(){
 
 	if( $("#edit-district").val() != '93') {
@@ -30,15 +26,15 @@ $(document).ready(function(){
 	
 	
 	$("#edit-district").change(function(){
-		$("#edit-circuit-1-wrapper").hide();
-		$("#edit-circuit-2-wrapper").hide();
-		$("#edit-circuit-3-wrapper").hide();
+		$("#edit-circuit-11-wrapper").hide();
+		$("#edit-circuit-21-wrapper").hide();
+		$("#edit-circuit-9-wrapper").hide();
 		$("#edit-circuit-4-wrapper").hide();
-		$("#edit-circuit-5-wrapper").hide();
+		$("#edit-circuit-15-wrapper").hide();
 		$("#edit-circuit-6-wrapper").hide();
 		$("#edit-circuit-7-wrapper").hide();
 		if( $("#edit-district").val() == '93') {
-			$("#edit-circuit-1-wrapper").show('slow');
+			$("#edit-circuit-6-wrapper").show('slow');
 		};
 		if( $("#edit-district").val() == '94') {
 			$("#edit-circuit-2-wrapper").show('slow');
@@ -61,21 +57,3 @@ $(document).ready(function(){
 	});
 
 });
-
-//When you select petrol, show petrol and hide diesel
-//Todo, add if statements to check if the element is already if the state that you want to change it to
-/*
-$(document).ready(function(){
-	$("#edit-circuit-petrol-size-wrapper").slideDown();	
-	$("#edit-circuit-diesel-size-wrapper").slideUp();	
-});
-
-//When you select petrol, show diesel and hide petrol
-//Todo, add if statements to check if the element is already if the state that you want to change it to
-
-$(document).ready(function(){
-	$("#edit-circuit-petrol-size-wrapper").slideUp();	
-	$("#edit-circuit-diesel-size-wrapper").slideDown();	
-});
-
-*/

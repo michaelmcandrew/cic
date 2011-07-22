@@ -60,7 +60,7 @@ function cic_directory_theme() {
 			'template' => 'cic-directory-map',
 	),
 		'cic_directory_search' => array(
-			'arguments' => array('form' => NULL,'results' => NULL, 'pager' => NULL),
+			'arguments' => array('form' => NULL,'results' => NULL, 'pager' => NULL, 'districts' => NULL),
 			'template' => 'cic-directory-search',
 	)
   );
@@ -69,9 +69,7 @@ function cic_directory_theme() {
 
 
 function cic_directory_search_form() {
-	
-	drupal_add_js(drupal_get_path('module', 'cic_directory') . '/cic-directory-district.js');
-	
+		
 	
 	$who_options[]=$what_options[]=$where_options[]=' - select - ';
 	
@@ -89,16 +87,21 @@ function cic_directory_search_form() {
 			$where_options[$data->district_borough_council_3]=$data->district_borough_council_3;
 		}
 	}
-	$result = db_query('SELECT id, name FROM {civicrm_membership_type} ORDER BY name');
-	while ($data = db_fetch_object($result)){
-		if(trim($data->name)!='-'){
-			$districts[cic_directory_get_district($data->name)]['']=' - select - ';
-			$districts[cic_directory_get_district($data->name)][$data->id]=$data->name;
-		}
+	
+	// make sense of the district and ciruit relationships using the numbers at the end of their codes
+	$cd = cic_directory_get_circuits_districts();
+	$circuits=$cd['circuits'];
+	$districts=$cd['districts'];
+	$district_options['']=' - select - ';
+
+	foreach($districts as $key => $district){
+		$district_options[$key]=$district['name'];
+		$circuitsByDistrict[$district['code']]['']=' - select - ';
 	}
-	$district_options = $districts[''];
-	unset($districts['']);
-	ksort($districts);
+
+	foreach($circuits as $key => $circuit){
+		$circuitsByDistrict[$circuit['districtCode']][$key]=$circuit['name'];
+	}	
 //	print_r($districts);exit;
 	$form['search']['#type']='fieldset';
 	$form['#method'] = 'post';
@@ -117,17 +120,14 @@ function cic_directory_search_form() {
 		'#description' => 'What district is the church or project in?',
 		'#default_value' => $_SESSION['cic_directory']['district']
 	);
-	foreach($districts as $district_name => $circuits){
-		$key++;
-		// $key=strtolower($district_name);
-		// $key=str_replace(array('&','(',')'), '', $key);
+	foreach($districts as $district){
 		
-		$form['search']['circuit-'.$key] = array(
-			'#title' => 'Circuits in '.$district_name,
+		$form['search']['circuit-'.$district['code']] = array(
+			'#title' => 'Circuits in '.$district['name'],
 			'#type' => 'select',
-			'#options' => $circuits,		
+			'#options' => $circuitsByDistrict[$district['code']],		
 			'#description' => 'You can choose a Circuit to further narrow your search',
-			'#default_value' => $_SESSION['cic_directory']['circuit-'.$key]
+			'#default_value' => $_SESSION['cic_directory']['circuit-'.$district['code']]
 		);
 		
 	}
@@ -176,6 +176,28 @@ function cic_directory_search_form_submit($form, &$form_state) {
 }
 
 
+function cic_directory_get_circuits_districts(){
+	$result=db_query("SELECT id, name FROM civicrm_membership_type WHERE name!='-' ORDER BY name");
+	while($row=db_fetch_object($result)){
+		$openingBracketPos=strrpos($row->name,'(');
+		$closingBracketPos=strrpos($row->name,')');
+		$length=$closingBracketPos-$openingBracketPos-1;
+		$code=trim(substr($row->name, $openingBracketPos+1, $length));
+		if(strpos($code, '/')===FALSE){
+			$districts[$row->id]=array('code'=>$code, 'name'=>$row->name);
+			$districtsByCode[$code]=$row->id;
+		} else{
+			$slashPos=strpos($code, '/');
+			$districtCode=substr($code, 0, $slashPos);
+			$circuits[$row->id]=array('code'=>$code, 'name'=>$row->name, 'districtCode'=>$districtCode);
+		}
+	}
+	foreach($circuits as $key => $circuit){
+		$circuits[$key]['district']=$districts[$districtsByCode[$circuit['districtCode']]]['name'];
+	}
+	return array('circuits'=>$circuits, 'districts'=>$districts);
+}
+
 function cic_directory_search() {
 	drupal_set_title(DATABASE_SEARCH);
 	$breadcrumb = array();
@@ -189,7 +211,9 @@ function cic_directory_search() {
 	unset($_SESSION['cic_directory'][$v]);
 	}	
 	$form = drupal_get_form('cic_directory_search_form');
-	return theme('cic_directory_search', $form);
+	
+	$cd=cic_directory_get_circuits_districts();
+	return theme('cic_directory_search', $form, null, null, $cd['districts']);
 	
 	
 }
@@ -222,25 +246,26 @@ function _cic_directory_build_query() {
 		$arg[]=$_SESSION['cic_directory']['where'];
 	}
 	
+	$cd=cic_directory_get_circuits_districts();
+	foreach($cd['districts'] as $key => $d){
+		if($_SESSION['cic_directory']['district']==$key){
+			$dc=$d['code'];
+		}
+	}
+
 	if(isset($_SESSION['cic_directory']['district']) && $_SESSION['cic_directory']['district']!=0){
 		
 		
-		$result = db_query('SELECT id, name FROM {civicrm_membership_type} ORDER BY name');
-		while ($data = db_fetch_object($result)){
-			if(trim($data->name)!='-'){
-				$districts[cic_directory_get_district_id($data->name)][$data->id]=$data->name;
-			}
-		}
-		$anotherTranslation=array(93=>1, 94=>2,95=>3,96=>4,97=>5,98=>6,99=>7);
-		if($_SESSION['cic_directory']['circuit-'.$anotherTranslation[$_SESSION['cic_directory']['district']]]==''){
+		if($_SESSION['cic_directory']['circuit-'.$dc]==''){
 			$where_clauses[]=' AND ( 0';
-			foreach(array_keys($districts[$_SESSION['cic_directory']['district']]) as $boot){
-				$where_clauses[] = " OR cmem.membership_type_id = $boot ";
+			foreach($cd['circuits'] as $key => $c){
+				if($c['districtCode']==$dc)
+				$where_clauses[] = " OR cmem.membership_type_id = $key ";
 			}
 			$where_clauses[]=' ) ';
 		}else{
 			$where_clauses[] = 'AND cmem.membership_type_id = "%d"';
-			$arg[]=$_SESSION['cic_directory']['circuit-'.$anotherTranslation[$_SESSION['cic_directory']['district']]];
+			$arg[]=$_SESSION['cic_directory']['circuit-'.$dc];
 		}
 	}
 	
@@ -250,8 +275,8 @@ function _cic_directory_build_query() {
 	$where=implode("\n", $where_clauses);
 	$order_by=implode("\n", $order_by_clauses);
 	
-	return array('sql'=>"$select\n$from\n$where\n$order_by", 'arg'=>$arg); 
-	
+	$sql="$select\n$from\n$where\n$order_by";
+	return array('sql'=>$sql, 'arg'=>$arg); 
 }
 
 
@@ -278,12 +303,12 @@ function cic_directory_results() {
 	$build_query = _cic_directory_build_query();
 	$sql = $build_query['sql'];
 	$arg = $build_query['arg'];
-//	print_r($sql);print_r($arg);
+	print_r($sql);print_r($arg);
 //	exit;
 	$pager_num = 1;
 	$limit = 20;
 	$result = db_query($sql, $arg[0], $arg[1], $arg[2], $arg[3], $arg[4], $arg[5], $arg[6], $arg[7], $arg[8], $arg[9]);
-	$results['count']=mysql_num_rows($result);
+	$results['count']=$result->num_rows;
 	$result = pager_query($sql, $limit, $pager_num, NULL, $arg[0], $arg[1], $arg[2], $arg[3], $arg[4], $arg[5], $arg[6], $arg[7], $arg[8], $arg[9]);
 	$pager = theme('pager', NULL, $limit, $pager_num);
 	while ($data = db_fetch_object($result)) {
@@ -295,7 +320,8 @@ function cic_directory_results() {
 	}
 	$header = array('type', 'name', 'address', 'who', 'what', 'where (LA, ward)');
 	$results['table'] = theme_table($header, $rows, $attributes = array(), $caption = NULL);		
-	return theme('cic_directory_search', $form, $results, $pager);//	exit;
+	$cd=cic_directory_get_circuits_districts();
+	return theme('cic_directory_search', $form, $results, $pager, $cd['districts']);
 	
 	
 	
@@ -473,198 +499,24 @@ WHERE org.id=%d AND !ind.is_deleted',$contact_id));
 	return theme('cic_directory_view', $church, $address_block, $about, $links, $docs);
 }
 
-function cic_directory_get_district($circuit){
-	$translation=array(
-		"Altrincham (19/8)" => "Manchester and Stockport (19)",
-		"Ashton-under-Lyne (19/23)" => "Manchester and Stockport (19)",
-		"Bramhall (19/15)" => "Manchester and Stockport (19)",
-		"Buxton (19/18)" => "Manchester and Stockport (19)",
-		"Glossop (19/21)" => "Manchester and Stockport (19)",
-		"Hazel Grove and Poynton (19/14)" => "Manchester and Stockport (19)",
-		"High Peak (19/20)" => "Manchester and Stockport (19)",
-		"Hyde and Denton (19/22)" => "Manchester and Stockport (19)",
-		"Macclesfield (19/24)" => "Manchester and Stockport (19)",
-		"Manchester (19/1)" => "Manchester and Stockport (19)",
-		"Oldham and Saddleworth (19/11)" => "Manchester and Stockport (19)",
-		"Romiley (19/16)" => "Manchester and Stockport (19)",
-		"Sale (19/9)" => "Manchester and Stockport (19)",
-		"Salford (19/3)" => "Manchester and Stockport (19)",
-		"Shaw and Royton (19/12)" => "Manchester and Stockport (19)",
-		"Stockport (19/13)" => "Manchester and Stockport (19)",
-		"Stretford and Urmston (19/7)" => "Manchester and Stockport (19)",
-		"Whaley Bridge Uniting Partnership (19/17)" => "Manchester and Stockport (19)",
-		"Wythenshawe (19/25)" => "Manchester and Stockport (19)",
-		"Alderley Edge and Knutsford (19/19)" => "Manchester and Stockport (19)",
-		"Bolton (6/1)" => "Bolton & Rochdale (6)",
-		"Victoria Hall (6/2)" => "Bolton & Rochdale (6)",
-		"Farnworth and Worsley (6/3)" => "Bolton & Rochdale (6)",
-		"Rochdale and Littleborough (6/4)" => "Bolton & Rochdale (6)",
-		"Wigan (6/5)" => "Bolton & Rochdale (6)",
-		"Leigh and Hindley (6/7)" => "Bolton & Rochdale (6)",
-		"Bury and Heywood (6/8)" => "Bolton & Rochdale (6)",
-		"Prestwich and Radcliffe (6/9)" => "Bolton & Rochdale (6)",
-		"Rossendale (6/14)" => "Bolton & Rochdale (6)",
-		"Carlisle (9/1)" => "Cumbria (9)",
-		"Brampton (9/2)" => "Cumbria (9)",
-		"Alston (9/3)" => "Cumbria (9)",
-		"Whitehaven (9/4)" => "Cumbria (9)",
-		"Solway (9/5)" => "Cumbria (9)",
-		"Keswick and Cockermouth (9/6)" => "Cumbria (9)",
-		"Kirkby Stephen, Appleby and Tebay (9/7)" => "Cumbria (9)",
-		"Sedbergh (9/8)" => "Cumbria (9)",
-		"Penrith (9/9)" => "Cumbria (9)",
-		"Kirkoswald (9/10)" => "Cumbria (9)",
-		"Wigton (9/12)" => "Cumbria (9)",
-		"Kendal (9/13)" => "Cumbria (9)",
-		"Ambleside and Windermere (9/14)" => "Cumbria (9)",
-		"Ulverston (9/15)" => "Cumbria (9)",
-		"South West Cumbria (9/16)" => "Cumbria (9)",
-		"Chester (11/1)" => "Chester and Stoke-on-Trent (11)",
-		"Runcorn (11/2)" => "Chester and Stoke-on-Trent (11)",
-		"Delamere Forest (11/3)" => "Chester and Stoke-on-Trent (11)",
-		"Northwich and Winsford (11/4)" => "Chester and Stoke-on-Trent (11)",
-		"Middlewich (11/5)" => "Chester and Stoke-on-Trent (11)",
-		"Cheshire South (11/8)" => "Chester and Stoke-on-Trent (11)",
-		"Mow Cop, Biddulph and Congleton (11/9)" => "Chester and Stoke-on-Trent (11)",
-		"Market Drayton (11/14)" => "Chester and Stoke-on-Trent (11)",
-		"Stoke-on-Trent North (11/15)" => "Chester and Stoke-on-Trent (11)",
-		"Kidsgrove (11/16)" => "Chester and Stoke-on-Trent (11)",
-		"Stoke-on-Trent (Burslem Mission) (11/18)" => "Chester and Stoke-on-Trent (11)",
-		"Stoke-on-Trent (South) (11/20)" => "Chester and Stoke-on-Trent (11)",
-		"Wolstanton and Audley (11/22)" => "Chester and Stoke-on-Trent (11)",
-		"Newcastle (Staffs) (11/23)" => "Chester and Stoke-on-Trent (11)",
-		"Leek (11/24)" => "Chester and Stoke-on-Trent (11)",
-		"Cheadle (11/25)" => "Chester and Stoke-on-Trent (11)",
-		"Isle of Man (15/1)" => "Isle of Man (15)",
-		"Liverpool (North) (18/1)" => "Liverpool (18)",
-		"Liverpool (North Central) (18/3)" => "Liverpool (18)",
-		"Liverpool (City Centre Ministry) (18/4)" => "Liverpool (18)",
-		"Liverpool (South) (18/5)" => "Liverpool (18)",
-		"Liverpool (Linacre Mission) (18/7)" => "Liverpool (18)",
-		"Crosby (18/8)" => "Liverpool (18)",
-		"Wirral (18/9)" => "Liverpool (18)",
-		"St. Helens and Prescot (18/13)" => "Liverpool (18)",
-		"Makerfield (18/14)" => "Liverpool (18)",
-		"Warrington (18/15)" => "Liverpool (18)",
-		"Widnes (18/16)" => "Liverpool (18)",
-		"Southport (18/17)" => "Liverpool (18)",
-		"Southport (Banks and Hesketh Bank) (18/18)" => "Liverpool (18)",
-		"Ormskirk (18/19)" => "Liverpool (18)",
-		"Skelmersdale (18/20)" => "Liverpool (18)",
-		"Burnley (21/1)" => "Lancashire District (21)",
-		"Blackburn (21/2)" => "Lancashire District (21)",
-		"Great Harwood (21/3)" => "Lancashire District (21)",
-		"Darwen (21/4)" => "Lancashire District (21)",
-		"Accrington and Haslingden (21/5)" => "Lancashire District (21)",
-		"Pendle (21/6)" => "Lancashire District (21)",
-		"Clitheroe (21/9)" => "Lancashire District (21)",
-		"Chorley and Leyland (21/10)" => "Lancashire District (21)",
-		"Preston Ribble (21/11)" => "Lancashire District (21)",
-		"Blackpool (21/12)" => "Lancashire District (21)",
-		"South Fylde (21/14)" => "Lancashire District (21)",
-		"North Fylde (21/15)" => "Lancashire District (21)",
-		"Garstang (21/16)" => "Lancashire District (21)",
-		"Lancaster (21/17)" => "Lancashire District (21)",
-		"Morecambe and Heysham (21/18)" => "Lancashire District (21)"
-	);
-	return $translation[$circuit];
+function cic_directory_get_district($circuit_name){
+	
+	//needs circuit name - gives district name
+	$cd = cic_directory_get_circuits_districts();
+	foreach( $cd['circuits'] as $circuit){
+		if($circuit['name']==$circuit_name){
+			return $circuit['district'];
+		}
+	}
 }
 
 function cic_directory_get_district_id($circuit){
-	$translation=array(
-		"Altrincham (19/8)" => 99,
-		"Ashton-under-Lyne (19/23)" => 99,
-		"Bramhall (19/15)" => 99,
-		"Buxton (19/18)" => 99,
-		"Glossop (19/21)" => 99,
-		"Hazel Grove and Poynton (19/14)" => 99,
-		"High Peak (19/20)" => 99,
-		"Hyde and Denton (19/22)" => 99,
-		"Macclesfield (19/24)" => 99,
-		"Manchester (19/1)" => 99,
-		"Oldham and Saddleworth (19/11)" => 99,
-		"Romiley (19/16)" => 99,
-		"Sale (19/9)" => 99,
-		"Salford (19/3)" => 99,
-		"Shaw and Royton (19/12)" => 99,
-		"Stockport (19/13)" => 99,
-		"Stretford and Urmston (19/7)" => 99,
-		"Whaley Bridge Uniting Partnership (19/17)" => 99,
-		"Wythenshawe (19/25)" => 99,
-		"Alderley Edge and Knutsford (19/19)" => 99,
-		"Bolton (6/1)" => 93,
-		"Victoria Hall (6/2)" => 93,
-		"Farnworth and Worsley (6/3)" => 93,
-		"Rochdale and Littleborough (6/4)" => 93,
-		"Wigan (6/5)" => 93,
-		"Leigh and Hindley (6/7)" => 93,
-		"Bury and Heywood (6/8)" => 93,
-		"Prestwich and Radcliffe (6/9)" => 93,
-		"Rossendale (6/14)" => 93,
-		"Carlisle (9/1)" => 95,
-		"Brampton (9/2)" => 95,
-		"Alston (9/3)" => 95,
-		"Whitehaven (9/4)" => 95,
-		"Solway (9/5)" => 95,
-		"Keswick and Cockermouth (9/6)" => 95,
-		"Kirkby Stephen, Appleby and Tebay (9/7)" => 95,
-		"Sedbergh (9/8)" => 95,
-		"Penrith (9/9)" => 95,
-		"Kirkoswald (9/10)" => 95,
-		"Wigton (9/12)" => 95,
-		"Kendal (9/13)" => 95,
-		"Ambleside and Windermere (9/14)" => 95,
-		"Ulverston (9/15)" => 95,
-		"South West Cumbria (9/16)" => 95,
-		"Chester (11/1)" => 94,
-		"Runcorn (11/2)" => 94,
-		"Delamere Forest (11/3)" => 94,
-		"Northwich and Winsford (11/4)" => 94,
-		"Middlewich (11/5)" => 94,
-		"Cheshire South (11/8)" => 94,
-		"Mow Cop, Biddulph and Congleton (11/9)" => 94,
-		"Market Drayton (11/14)" => 94,
-		"Stoke-on-Trent North (11/15)" => 94,
-		"Kidsgrove (11/16)" => 94,
-		"Stoke-on-Trent (Burslem Mission) (11/18)" => 94,
-		"Stoke-on-Trent (South) (11/20)" => 94,
-		"Wolstanton and Audley (11/22)" => 94,
-		"Newcastle (Staffs) (11/23)" => 94,
-		"Leek (11/24)" => 94,
-		"Cheadle (11/25)" => 94,
-		"Isle of Man (15/1)" => 96,
-		"Liverpool (North) (18/1)" => 98,
-		"Liverpool (North Central) (18/3)" => 98,
-		"Liverpool (City Centre Ministry) (18/4)" => 98,
-		"Liverpool (South) (18/5)" => 98,
-		"Liverpool (Linacre Mission) (18/7)" => 98,
-		"Crosby (18/8)" => 98,
-		"Wirral (18/9)" => 98,
-		"St. Helens and Prescot (18/13)" => 98,
-		"Makerfield (18/14)" => 98,
-		"Warrington (18/15)" => 98,
-		"Widnes (18/16)" => 98,
-		"Southport (18/17)" => 98,
-		"Southport (Banks and Hesketh Bank) (18/18)" => 98,
-		"Ormskirk (18/19)" => 98,
-		"Skelmersdale (18/20)" => 98,
-		"Burnley (21/1)" => 97,
-		"Blackburn (21/2)" => 97,
-		"Great Harwood (21/3)" => 97,
-		"Darwen (21/4)" => 97,
-		"Accrington and Haslingden (21/5)" => 97,
-		"Pendle (21/6)" => 97,
-		"Clitheroe (21/9)" => 97,
-		"Chorley and Leyland (21/10)" => 97,
-		"Preston Ribble (21/11)" => 97,
-		"Blackpool (21/12)" => 97,
-		"South Fylde (21/14)" => 97,
-		"North Fylde (21/15)" => 97,
-		"Garstang (21/16)" => 97,
-		"Lancaster (21/17)" => 97,
-		"Morecambe and Heysham (21/18)" => 97,
-	);
-	return $translation[$circuit];
+	$cd = cic_directory_get_circuits_districts();
+	foreach( $cd['circuits'] as $circuit){
+		if($circuit['name']==$circuit_name){
+			return $circuit['districtCode'];
+		}
+	}
 }
 
 

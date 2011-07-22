@@ -1,3 +1,28 @@
+<script type="text/javascript"> 
+<!--//--><![CDATA[//><!--
+
+$(document).ready(function(){
+	
+	<?php foreach($districts as $key => $district){ ?> 
+		if( $('#edit-district').val() != <?php echo "'{$key}'" ?>) { $(<?php echo "'#edit-circuit-{$district['code']}-wrapper'" ?>).hide(); };
+	<?php } ?>
+	
+		
+	$("#edit-district").change(function(){
+		<?php foreach($districts as $key => $district){ ?> 
+			$(<?php echo "'#edit-circuit-{$district['code']}-wrapper'" ?>).hide();
+		<?php } ?>
+		
+		<?php foreach($districts as $key => $district){ ?> 
+			if( $("#edit-district").val() == <?php echo "'{$key}'" ?>) { $(<?php echo "'#edit-circuit-{$district['code']}-wrapper'" ?>).show('slow'); };
+			
+		<?php } ?>
+		
+	});
+
+});
+//--><!]]></script> 
+
 
 <div id='form'>
 
