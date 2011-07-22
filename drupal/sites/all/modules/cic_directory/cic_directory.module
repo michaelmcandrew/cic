@@ -303,7 +303,7 @@ function cic_directory_results() {
 	$build_query = _cic_directory_build_query();
 	$sql = $build_query['sql'];
 	$arg = $build_query['arg'];
-	print_r($sql);print_r($arg);
+	// print_r($sql);print_r($arg);
 //	exit;
 	$pager_num = 1;
 	$limit = 20;
