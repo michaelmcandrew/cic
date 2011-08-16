@@ -449,7 +449,7 @@ function cic_directory_view($contact_id) {
 	$website_result = CRM_Core_DAO::executeQuery("SELECT url FROM civicrm_website WHERE contact_id = %1", $params);
 	$website_result->fetch();
 	$church['website']=$website_result->url;
-	$church['contact']=db_result(db_query('SELECT ind.display_name
+	$church['contact']=db_result(db_query('SELECT group_concat(ind.display_name SEPARATOR " ")
 FROM civicrm_contact AS ind
 JOIN civicrm_relationship AS rel ON rel.contact_id_a=ind.id AND rel.relationship_type_id=12
 JOIN civicrm_contact AS org ON rel.contact_id_b=org.id
@@ -479,17 +479,20 @@ WHERE org.id=%d AND !ind.is_deleted',$contact_id));
 		
 	//docs
 	require_once('api/File.php');
+	require_once 'CRM/Utils/File.php';
 	$files=array(
 		1 => $church_custom_data['custom_9'],
 		2 => $church_custom_data['custom_10'],
 		3 => $church_custom_data['custom_11']
 	);
+	
 	foreach($files as $k => $v){
+		
 		if($v!=''){
 			$params=array('id' => $v);
-			// $result=crm_get_file($params);
-			// print_r($result);exit;
-			$docs[$k]="<a href=".CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}>Document $k</a>";
+			$result=crm_get_file($params);
+			$link=CRM_Utils_File::cleanFileName($result[$v]['uri']);
+			$docs[$k]="<a href=".CIVICRM_UF_BASEURL."civicrm/file?reset=1v&id={$v}&eid={$contact_id}>$link</a>";
 		}
 	}
 	if(!count($docs)){
