@@ -21,10 +21,11 @@
 
 <div class='quarter qb ql' id='q3'>
 	<h3>Maps and links</h3>
-	<?php print cic_directory_theme_var('Google map', $links['map'], 'url', array('type'=>'image','file'=>'globe.png')); ?>	
-	<?php print cic_directory_theme_var('Stats for mission', $links['stats'], 'url', array('type'=>'image','file'=>'s4m.png')); ?>	
-	<?php print cic_directory_theme_var('ONS statistics', $links['ons'], 'url', array('type'=>'image','file'=>'stats.png')); ?>	
-	</div>
+	<?php print cic_directory_theme_var('Stats 2011/12', $links['stats1112'], 'url', array('type'=>'image','file'=>'s4m-small.png')); ?>	
+	<?php print cic_directory_theme_var('Stats 2010/11', $links['stats1011'], 'url', array('type'=>'image','file'=>'s4m-small.png')); ?>
+	<?php print cic_directory_theme_var('ONS statistics', $links['ons'], 'url', array('type'=>'image','file'=>'stats-small.png')); ?>	
+	<?php print cic_directory_theme_var('Google map', $links['map'], 'url', array('type'=>'image','file'=>'globe-small.png')); ?>	
+</div>
 
 <div class='quarter qb qr' id='q4'>
 	<h3>Documents</h3>

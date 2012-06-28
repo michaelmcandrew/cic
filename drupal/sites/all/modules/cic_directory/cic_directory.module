@@ -98,11 +98,15 @@ function cic_directory_search_form() {
 		$district_options[$key]=$district['name'];
 		$circuitsByDistrict[$district['code']]['']=' - select - ';
 	}
+	// removing one of the districts from the dropdown - 'Connexial Posts' (153)
+	unset($district_options[153]);
 
 	foreach($circuits as $key => $circuit){
 		$circuitsByDistrict[$circuit['districtCode']][$key]=$circuit['name'];
 	}	
-//	print_r($districts);exit;
+	
+	// print_r($district_options);exit;
+	
 	$form['search']['#type']='fieldset';
 	$form['#method'] = 'post';
 	$form['#action'] = '/directory/results';
@@ -174,7 +178,6 @@ function cic_directory_search_form_submit($form, &$form_state) {
 		$_SESSION['cic_directory'][$v]=$form_state['values'][$v];
 	}
 }
-
 
 function cic_directory_get_circuits_districts(){
 	$result=db_query("SELECT id, name FROM civicrm_membership_type WHERE name!='-' ORDER BY name");
@@ -474,7 +477,9 @@ WHERE org.id=%d AND !ind.is_deleted',$contact_id));
 	} else {
 		$links['ons']="http://neighbourhood.statistics.gov.uk/dissemination/NeighbourhoodSummary.do?width=0&i=0&profileSearchText={$church['postal_code']}";
 	}
-	$links['stats']="http://www.stats4mission.org.uk/begin/";
+	$links['stats1011']="http://www.stats4mission.org.uk/begin/";
+	$links['stats1112']="http://www.methodist.org.uk/statisticsformission/";
+	
 	
 		
 	//docs
